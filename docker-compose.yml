@@ -1,0 +1,41 @@
+x-dex: &dex
+  image: ghcr.io/dexidp/dex:v2.41.1
+  command: dex serve /etc/dex/config.yaml
+  volumes:
+    - ./dev/dex.yaml:/etc/dex/config.yaml:ro
+
+# Two Dex services with the same config. Only one runs at a time (both publish 5556).
+#   Host dev:        docker compose up -d dex          (profile "dev" is started by name)
+#   Full container:  docker compose --profile app up -d --build
+# The app-profile Dex also publishes 3000 and shares its network namespace with `server`,
+# so OIDC_ISSUER=http://localhost:5556/dex is the same string for the browser (published
+# port) and for the server (localhost inside the shared namespace). No /etc/hosts edits.
+services:
+  dex:
+    <<: *dex
+    profiles: ["dev"]
+    ports:
+      - "5556:5556"
+
+  dex-app:
+    <<: *dex
+    profiles: ["app"]
+    ports:
+      - "5556:5556"
+      - "3000:3000"
+
+  server:
+    profiles: ["app"]
+    build: .
+    network_mode: "service:dex-app"
+    environment:
+      PUBLIC_URL: http://localhost:3000
+      OIDC_ISSUER: http://localhost:5556/dex
+      OIDC_CLIENT_ID: nooted
+      OIDC_CLIENT_SECRET: nooted-dev-secret
+      NOOTED_ADMIN_EMAILS: admin@example.com
+    volumes:
+      - nooted-data:/data
+
+volumes:
+  nooted-data:

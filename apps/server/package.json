@@ -1,0 +1,23 @@
+{
+  "name": "@nooted/server",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch src/index.ts",
+    "start": "node --env-file-if-exists=.env src/index.ts",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "@hono/zod-validator": "^0.9.1",
+    "@nooted/shared": "workspace:*",
+    "hono": "^4.13.14",
+    "kysely": "^0.29.7",
+    "openid-client": "^6.8.8",
+    "zod": "^4.6.7"
+  }
+}

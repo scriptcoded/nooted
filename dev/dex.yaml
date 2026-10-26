@@ -1,0 +1,33 @@
+# Local development IdP. Not for production use.
+# Sign in with admin@example.com or dev@example.com, password "password".
+issuer: http://localhost:5556/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+enablePasswordDB: true
+
+staticClients:
+  - id: nooted
+    name: Nooted
+    secret: nooted-dev-secret
+    redirectURIs:
+      - http://localhost:5173/auth/callback
+      - http://localhost:3000/auth/callback
+
+staticPasswords:
+  - email: admin@example.com
+    # bcrypt of "password" (Dex's documented example hash)
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+    username: admin
+    userID: "8b3c1f0e-2d4a-4f6b-9a1e-5c7d9e0f1a21"
+  - email: dev@example.com
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+    username: dev
+    userID: "3f9e2a7b-6c1d-4e8f-b0a2-7d4c5e6f8a92"
+
+oauth2:
+  skipApprovalScreen: true

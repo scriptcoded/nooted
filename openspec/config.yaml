@@ -1,0 +1,47 @@
+schema: spec-driven
+
+context: |
+  Nooted: personal/team feedback tool. The in-page SDK captures notes plus rrweb recordings; coding agents read them through MCP.
+  Monorepo (pnpm): apps/server (Hono), apps/web (Vite + TanStack Router/Query + MUI), packages/* (sdk, shared).
+  Runtime is Node 26 (`fnm use 26`). The server runs .ts directly via native type stripping: no build step, erasable syntax only
+  (no enums, namespaces or parameter properties), and relative imports use the .ts extension.
+  Storage is SQLite (node:sqlite) plus blob files on disk, single replica. Deploys as Docker, k8s later. The backend sits on the tailnet.
+  User auth is a generic OIDC client (Dex in dev). Agents authenticate through MCP OAuth, with Nooted as authorization server.
+  Raw rrweb data is never sent to an LLM.
+
+operations:
+  apply:
+    guidance:
+      - Implement by delegating task groups to subagents. Use model "sonnet" for non-trivial work (auth, security, ingestion, multi-file features, UI flows) and "haiku" for mechanical work (config, boilerplate, simple CRUD, docs).
+      - The orchestrator reviews each subagent's result, runs typecheck/tests, and ticks tasks only after verifying them.
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

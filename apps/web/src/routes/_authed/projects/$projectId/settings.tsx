@@ -22,6 +22,7 @@ import {
 } from '@mui/material'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteIcon from '@mui/icons-material/Delete'
+import { loaderCspHash, loaderSnippet } from '@nooted/sdk'
 import { api } from '../../../../api.ts'
 import { projectQuery, toApiError } from '../../../../queries.ts'
 
@@ -37,6 +38,73 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       </Typography>
       {children}
     </Paper>
+  )
+}
+
+type OnCopy = (text: string, name: string) => void
+
+// Monospace block with a copy button. `name` is used for the button label and the "<name> copied" toast.
+function CodeBlock({ name, code, onCopy }: { name: string; code: string; onCopy: OnCopy }) {
+  return (
+    <Box sx={{ position: 'relative' }}>
+      <Box
+        component="pre"
+        sx={{ m: 0, p: 1.5, pr: 6, whiteSpace: 'pre-wrap', wordBreak: 'break-all', bgcolor: 'action.hover', borderRadius: 1, fontFamily: 'monospace', fontSize: 13 }}
+      >
+        {code}
+      </Box>
+      <IconButton
+        aria-label={`Copy ${name.toLowerCase()}`}
+        size="small"
+        onClick={() => onCopy(code, name)}
+        sx={{ position: 'absolute', top: 8, right: 8 }}
+      >
+        <ContentCopyIcon fontSize="small" />
+      </IconButton>
+    </Box>
+  )
+}
+
+function SdkSnippets({ projectKey, onCopy }: { projectKey: string; onCopy: OnCopy }) {
+  const nootedUrl = location.origin
+  const options = { projectKey, nootedUrl }
+  const { data: cspHash } = useQuery({
+    queryKey: ['loaderCspHash', projectKey, nootedUrl],
+    queryFn: () => loaderCspHash(options),
+  })
+  const plugin = `// vite.config.ts
+import nooted from '@nooted/sdk/vite'
+
+export default defineConfig({
+  plugins: [nooted({ projectKey: '${projectKey}', nootedUrl: '${nootedUrl}' })],
+})`
+
+  return (
+    <>
+      <Box>
+        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+          Loader snippet
+        </Typography>
+        <CodeBlock name="Loader snippet" code={loaderSnippet(options)} onCopy={onCopy} />
+        {cspHash && (
+          <Box sx={{ mt: 1.5 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              If your site has a Content Security Policy, add this to script-src, together with {nootedUrl}:
+            </Typography>
+            <CodeBlock name="CSP hash" code={cspHash} onCopy={onCopy} />
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              The runtime and its uploads also need {nootedUrl} in script-src and connect-src.
+            </Typography>
+          </Box>
+        )}
+      </Box>
+      <Box>
+        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+          Or with Vite
+        </Typography>
+        <CodeBlock name="Vite plugin example" code={plugin} onCopy={onCopy} />
+      </Box>
+    </>
   )
 }
 
@@ -60,7 +128,10 @@ function useProjectMutation<V>(projectId: string, run: (variables: V) => Promise
 function SettingsPage() {
   const { projectId } = Route.useParams()
   const { data: project } = useQuery(projectQuery(projectId))
-  const [copied, setCopied] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const copy: OnCopy = (text, name) => {
+    void navigator.clipboard.writeText(text).then(() => setToast(`${name} copied`))
+  }
   const param = { id: projectId }
 
   const rename = useProjectMutation(projectId, (name: string) => api.projects[':id'].$patch({ param, json: { name } }))
@@ -97,12 +168,7 @@ function SettingsPage() {
                 sx: { fontFamily: 'monospace' },
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton
-                      aria-label="Copy public key"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(project.publicKey).then(() => setCopied(true))
-                      }}
-                    >
+                    <IconButton aria-label="Copy public key" onClick={() => copy(project.publicKey, 'Public key')}>
                       <ContentCopyIcon />
                     </IconButton>
                   </InputAdornment>
@@ -110,17 +176,7 @@ function SettingsPage() {
               },
             }}
           />
-          <Box>
-            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-              SDK snippet
-            </Typography>
-            <Box
-              component="pre"
-              sx={{ m: 0, p: 1.5, overflow: 'auto', bgcolor: 'action.hover', borderRadius: 1, fontFamily: 'monospace', fontSize: 13 }}
-            >
-              {`<!-- Nooted loader snippet: coming with the SDK. Project key: ${project.publicKey} -->`}
-            </Box>
-          </Box>
+          <SdkSnippets projectKey={project.publicKey} onCopy={copy} />
         </Stack>
       </Section>
 
@@ -188,7 +244,7 @@ function SettingsPage() {
         />
       </Section>
 
-      <Snackbar open={copied} autoHideDuration={2000} onClose={() => setCopied(false)} message="Public key copied" />
+      <Snackbar open={toast !== null} autoHideDuration={2000} onClose={() => setToast(null)} message={toast ?? ''} />
     </>
   )
 }

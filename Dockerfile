@@ -11,16 +11,21 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
+COPY packages/sdk/package.json packages/sdk/
 RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN pnpm --filter @nooted/web build \
+# The SDK must be built before web: apps/web imports @nooted/sdk source, which needs
+# src/loader/code.generated.ts. The SDK's dist/ (served by the server) is built here too.
+RUN pnpm --filter @nooted/sdk build \
+  && pnpm --filter @nooted/web build \
   && pnpm prune --prod
 
 FROM base AS runtime
 ENV NODE_ENV=production \
   DATA_DIR=/data \
   WEB_DIST_DIR=/app/apps/web/dist \
+  SDK_DIST_DIR=/app/packages/sdk/dist \
   PORT=3000
 
 COPY --from=build /app /app

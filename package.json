@@ -7,8 +7,9 @@
     "node": ">=26"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter './apps/*' dev",
-    "typecheck": "pnpm -r typecheck"
+    "dev": "pnpm --filter @nooted/sdk build:loader && pnpm --parallel --filter './apps/*' --filter @nooted/sdk dev",
+    "build": "pnpm --filter @nooted/sdk build:loader && pnpm -r build",
+    "typecheck": "pnpm --filter @nooted/sdk build:loader && pnpm -r typecheck"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

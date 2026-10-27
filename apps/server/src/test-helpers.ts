@@ -37,6 +37,7 @@ export const testConfig: Config = {
   port: 3000,
   dataDir: './data',
   webDistDir: undefined,
+  sdkDistDir: '/nonexistent/nooted-sdk-dist',
   oidcIssuer: 'http://oidc.test',
   oidcClientId: 'nooted',
   oidcClientSecret: 'secret',

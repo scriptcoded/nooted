@@ -48,3 +48,17 @@ export function sdkOriginCheck(deps: { db: Kysely<DB> }) {
     c.res.headers.append('Vary', 'Origin')
   })
 }
+
+// Wraps token verification. A 401 comes from a token the server cannot tie to a project, so the origin
+// is checked against all projects instead. Without this header the browser hides the 401 from the SDK,
+// which would then mistake an expired or revoked token for a network error and retry with it forever.
+export function sdkCorsOnUnauthorized(deps: { db: Kysely<DB> }) {
+  return createMiddleware(async (c, next) => {
+    await next()
+    const origin = c.req.header('origin')
+    if (c.res.status === 401 && origin !== undefined && (await isOriginAllowedAnywhere(deps.db, origin))) {
+      c.res.headers.set('Access-Control-Allow-Origin', origin)
+      c.res.headers.append('Vary', 'Origin')
+    }
+  })
+}

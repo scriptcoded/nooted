@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { describe, it } from 'node:test'
-import { gzipSync } from 'node:zlib'
+import { gunzipSync, gzipSync } from 'node:zlib'
 import { hc } from 'hono/client'
 import type { AppType } from '../app.ts'
 import { issueUploadToken, revokeUploadToken } from '../sdk/tokens.ts'
@@ -106,6 +106,58 @@ describe('POST /api/sdk/reports', () => {
     const res = await upload(await tokenFor('p1'), gz(payload({ events: [] })))
     assert.equal(res.status, 400)
     assert.equal((await rows()).length, 0)
+  })
+
+  it('accepts omitted recording with no events', async () => {
+    const { tokenFor, upload, rows } = await setup()
+    const res = await upload(await tokenFor('p1'), gz(payload({ recording: false, events: [] })))
+    assert.equal(res.status, 201)
+    assert.equal((await rows()).length, 1)
+  })
+
+  it('rejects omitted recording that carries screen data', async () => {
+    const { tokenFor, upload, rows } = await setup()
+    const res = await upload(await tokenFor('p1'), gz(payload({ recording: false })))
+    assert.equal(res.status, 400)
+    const json = (await res.json()) as { error: string; issues: { path: string }[] }
+    assert.equal(json.error, 'invalid_report')
+    assert.ok(json.issues.some((i) => i.path === 'events.0'))
+    assert.equal((await rows()).length, 0)
+  })
+
+  it('rejects a focus with start >= end', async () => {
+    const { tokenFor, upload, rows } = await setup()
+    const res = await upload(await tokenFor('p1'), gz(payload({ focus: { start: 5, end: 5 } })))
+    assert.equal(res.status, 400)
+    assert.equal((await rows()).length, 0)
+  })
+
+  it('rejects a focus outside the event span', async () => {
+    const { tokenFor, upload, rows } = await setup()
+    const events = [{ type: 2, timestamp: 1000, data: {} }, { type: 3, timestamp: 2000, data: {} }]
+    const token = await tokenFor('p1')
+    assert.equal((await upload(token, gz(payload({ events, focus: { start: 999, end: 1500 } })))).status, 400)
+    assert.equal((await upload(token, gz(payload({ events, focus: { start: 1500, end: 3001 } })))).status, 400)
+    assert.equal((await rows()).length, 0)
+  })
+
+  it('rejects a focus when recording is omitted', async () => {
+    const { tokenFor, upload, rows } = await setup()
+    const res = await upload(await tokenFor('p1'), gz(payload({ recording: false, events: [], focus: { start: 1, end: 2 } })))
+    assert.equal(res.status, 400)
+    assert.equal((await rows()).length, 0)
+  })
+
+  it('stores a valid focus byte for byte in the raw blob', async () => {
+    const { t, tokenFor, upload, rows } = await setup()
+    const events = [{ type: 2, timestamp: 1000, data: {} }, { type: 3, timestamp: 2000, data: {} }]
+    const body = gz(payload({ events, focus: { start: 1200, end: 1800 } }))
+    const res = await upload(await tokenFor('p1'), body)
+    assert.equal(res.status, 201)
+    const [row] = await rows()
+    const blob = await t.blobs.get(row?.blob_key ?? '')
+    assert.ok(blob && Buffer.compare(Buffer.from(blob), body) === 0)
+    assert.deepEqual((JSON.parse(gunzipSync(Buffer.from(blob)).toString()) as { focus: unknown }).focus, { start: 1200, end: 1800 })
   })
 
   it('rejects invalid gzip and invalid json with 400', async () => {

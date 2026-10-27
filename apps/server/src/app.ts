@@ -8,6 +8,7 @@ import type { BlobStore } from './blobs.ts'
 import type { Config } from './config.ts'
 import type { DB } from './db/schema.ts'
 import { createProjectRoutes } from './projects/routes.ts'
+import { createSdkBundleRoutes } from './sdk/bundle.ts'
 import { createSdkApiRoutes } from './sdk/routes.ts'
 import { createSdkSignInRoutes } from './sdk/sign-in.ts'
 
@@ -30,6 +31,7 @@ export function createApp(deps: AppDeps) {
     .use(logger())
     .route('/api', api)
     .route('/auth', createAuthRoutes(deps))
+    .route('/sdk', createSdkBundleRoutes(deps))
     .route('/sdk', createSdkSignInRoutes(deps))
 }
 

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { loadConfig } from './config.ts'
 
 const valid = {
@@ -19,6 +20,7 @@ describe('loadConfig', () => {
       port: 3000,
       dataDir: './data',
       webDistDir: undefined,
+      sdkDistDir: fileURLToPath(new URL('../../../packages/sdk/dist', import.meta.url)),
       oidcIssuer: 'http://localhost:5556/dex',
       oidcClientId: 'nooted',
       oidcClientSecret: 'nooted-dev-secret',
@@ -29,6 +31,12 @@ describe('loadConfig', () => {
   it('reads an optional WEB_DIST_DIR and rejects a blank one as unset', () => {
     assert.equal(loadConfig({ ...valid, WEB_DIST_DIR: '/app/apps/web/dist' }).webDistDir, '/app/apps/web/dist')
     assert.equal(loadConfig({ ...valid, WEB_DIST_DIR: '   ' }).webDistDir, undefined)
+  })
+
+  it('reads SDK_DIST_DIR, defaulting to packages/sdk/dist in the repo', () => {
+    assert.equal(loadConfig(valid).sdkDistDir, fileURLToPath(new URL('../../../packages/sdk/dist', import.meta.url)))
+    assert.equal(loadConfig({ ...valid, SDK_DIST_DIR: '/srv/sdk' }).sdkDistDir, '/srv/sdk')
+    assert.equal(loadConfig({ ...valid, SDK_DIST_DIR: '   ' }).sdkDistDir, loadConfig(valid).sdkDistDir)
   })
 
   it('applies defaults for PORT and DATA_DIR and treats blank values as unset', () => {

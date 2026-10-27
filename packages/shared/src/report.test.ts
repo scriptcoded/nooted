@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { REPORT_LIMITS, ReportPayload } from './report.ts'
+import { NOOTED_ERROR_TAG, REPORT_LIMITS, ReportPayload } from './report.ts'
 
 const valid = () => ({
   clientReportId: '2f0c6f0e-5b0e-4c52-9d6e-0a9d3f1b7a11',
@@ -59,5 +59,63 @@ describe('ReportPayload', () => {
   it('treats release as optional', () => {
     const { release: _release, ...rest } = valid()
     assert.equal(ReportPayload.safeParse(rest).success, true)
+  })
+})
+
+describe('ReportPayload focus and recording', () => {
+  const T = 1_700_000_000_000
+  const events = () => [
+    { type: 4, timestamp: T, data: {} },
+    { type: 2, timestamp: T + 5000, data: {} },
+  ]
+  const errorEvent = (timestamp = T) => ({ type: 5, timestamp, data: { tag: NOOTED_ERROR_TAG, payload: { message: 'x' } } })
+  const issuePaths = (input: unknown) => {
+    const r = ReportPayload.safeParse(input)
+    return r.success ? null : r.error.issues.map((i) => i.path.join('.'))
+  }
+
+  it('accepts a valid focus, including an end within 1 s after the last event', () => {
+    assert.ok(ReportPayload.safeParse({ ...valid(), events: events(), focus: { start: T, end: T + 6000 } }).success)
+    const parsed = ReportPayload.parse({ ...valid(), events: events(), focus: { start: T + 1, end: T + 2 } })
+    assert.deepEqual(parsed.focus, { start: T + 1, end: T + 2 })
+  })
+
+  it('rejects focus with start >= end', () => {
+    assert.deepEqual(issuePaths({ ...valid(), events: events(), focus: { start: T + 10, end: T + 10 } }), ['focus'])
+    assert.deepEqual(issuePaths({ ...valid(), events: events(), focus: { start: T + 20, end: T + 10 } }), ['focus'])
+  })
+
+  it('rejects focus outside the event span', () => {
+    assert.deepEqual(issuePaths({ ...valid(), events: events(), focus: { start: T - 1, end: T + 10 } }), ['focus.start'])
+    assert.deepEqual(issuePaths({ ...valid(), events: events(), focus: { start: T, end: T + 6001 } }), ['focus.end'])
+  })
+
+  it('rejects unknown keys in focus and non-numeric values', () => {
+    assert.equal(ReportPayload.safeParse({ ...valid(), events: events(), focus: { start: T, end: T + 1, x: 1 } }).success, false)
+    assert.equal(ReportPayload.safeParse({ ...valid(), events: events(), focus: { start: 'a', end: 'b' } }).success, false)
+  })
+
+  it('rejects empty events when recording is not false', () => {
+    assert.deepEqual(issuePaths({ ...valid(), events: [] }), ['events'])
+  })
+
+  it('accepts recording false with no events or only error events', () => {
+    assert.ok(ReportPayload.safeParse({ ...valid(), recording: false, events: [] }).success)
+    assert.ok(ReportPayload.safeParse({ ...valid(), recording: false, events: [errorEvent(), errorEvent(T + 1)] }).success)
+  })
+
+  it('rejects recording true (only false or absent)', () => {
+    assert.equal(ReportPayload.safeParse({ ...valid(), recording: true }).success, false)
+  })
+
+  it('rejects non-error events when recording is false', () => {
+    assert.deepEqual(issuePaths({ ...valid(), recording: false, events: [errorEvent(), { type: 2, timestamp: T, data: {} }] }), ['events.1'])
+    assert.deepEqual(issuePaths({ ...valid(), recording: false, events: [{ type: 5, timestamp: T, data: { tag: 'other' } }] }), ['events.0'])
+    assert.deepEqual(issuePaths({ ...valid(), recording: false, events: [{ type: 3, timestamp: T, data: { tag: NOOTED_ERROR_TAG } }] }), ['events.0'])
+    assert.deepEqual(issuePaths({ ...valid(), recording: false, events: [{ type: 5, timestamp: T, data: null }] }), ['events.0'])
+  })
+
+  it('rejects focus when recording is false', () => {
+    assert.deepEqual(issuePaths({ ...valid(), recording: false, events: [errorEvent()], focus: { start: T, end: T + 1 } }), ['focus'])
   })
 })

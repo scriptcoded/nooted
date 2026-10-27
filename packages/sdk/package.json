@@ -1,0 +1,35 @@
+{
+  "name": "@nooted/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./vite": "./src/vite.ts"
+  },
+  "scripts": {
+    "build:loader": "node scripts/build-loader.ts",
+    "build": "pnpm build:loader && vite build -c vite.runtime.config.ts && vite build -c vite.replay.config.ts && vite build -c vite.lib.config.ts && tsc -p tsconfig.build.json",
+    "dev": "pnpm run dev:runtime & pnpm run dev:replay & pnpm run dev:playground; wait",
+    "dev:runtime": "vite build -c vite.runtime.config.ts --watch",
+    "dev:replay": "vite build -c vite.replay.config.ts --watch",
+    "dev:playground": "vite playground",
+    "playground": "vite playground",
+    "test": "pnpm build:loader && node --test \"src/**/*.test.ts\"",
+    "typecheck": "pnpm build:loader && tsc",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@nooted/shared": "workspace:*",
+    "@rrweb/record": "2.2.0",
+    "@rrweb/replay": "2.2.0",
+    "fflate": "^0.8.3",
+    "preact": "^11.0.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@preact/preset-vite": "^2.10.6",
+    "esbuild": "^0.28.2",
+    "vite": "^8.3.5"
+  }
+}

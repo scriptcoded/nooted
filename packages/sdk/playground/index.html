@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nooted SDK playground</title>
+    <style>
+      /* Deliberately hostile global CSS. Nooted's UI lives in a shadow root and must ignore all of it. */
+      * { box-sizing: content-box; font-size: 20px !important; }
+      div { border: 2px solid red; }
+      button { opacity: .9; text-transform: uppercase; }
+      body > div > button { visibility: hidden; }
+      input { outline: 3px dashed magenta; }
+      span { background: yellow; color: purple; }
+      /* The playground's own controls sit in <main>, outside body > div, so they stay usable. */
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Nooted SDK playground</h1>
+      <p>
+        Press <kbd>#nooted</kbd> at the end of the URL to enable Nooted on this page, and
+        <kbd>#nooted-off</kbd> to disable it. Then use the Report a problem button, or the floating
+        button Nooted adds. The page is served on <code>localhost:5174</code>, so add that origin to the project.
+      </p>
+
+      <nav>
+        <a href="/cart" data-route="/cart">Cart</a>
+        <a href="/checkout" data-route="/checkout">Checkout</a>
+      </nav>
+
+      <section id="page-cart">
+        <h2>Cart</h2>
+        <p>Two items, one total.</p>
+      </section>
+
+      <section id="page-checkout" hidden>
+        <h2>Checkout</h2>
+        <form id="signup-form" onsubmit="return false">
+          <label>Email <input id="email" type="text" name="email" /></label>
+          <label>Password <input id="password" type="password" name="password" /></label>
+
+          <div data-nooted="show">
+            <label>Search <input id="search" type="search" name="search" /></label>
+            <label>Confirm password <input id="show-password" type="password" name="show-password" /></label>
+          </div>
+
+          <div data-nooted="block" id="card">
+            <p>Card on file: Visa ending 4242, expires 12/29</p>
+          </div>
+
+          <p>Account number: <span data-nooted="mask" id="account-number">SE45 5000 0000 0583 9825 7466</span></p>
+        </form>
+      </section>
+
+      <section>
+        <h2>Errors</h2>
+        <button id="throw-error" type="button">Throw error</button>
+        <button id="reject-promise" type="button">Reject promise</button>
+        <button id="report-problem" type="button">Report a problem</button>
+      </section>
+    </main>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

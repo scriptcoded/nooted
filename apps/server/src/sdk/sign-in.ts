@@ -138,7 +138,7 @@ export function createSdkSignInRoutes(deps: AppDeps) {
       return page(c, 200, 'Signing you in', 'Signing you in…', () =>
         `(function(){var cfg=${scriptJson(signInConfig)};var msg=document.getElementById('msg');` +
         `function fail(t){msg.textContent=t}` +
-        `if(!window.opener){fail('Start the sign-in from the report window on the site you are reporting on, not from this tab.');return}` +
+        `if(!window.opener){fail('Start the sign-in from the report window on the site you are reporting on, not from this tab. If that site sends Cross-Origin-Opener-Policy: same-origin, the report window cannot reach this one. Use same-origin-allow-popups on the site instead.');return}` +
         `var h={'content-type':'application/json'};h[cfg.header]='1';` +
         `fetch('/sdk/sign-in/token',{method:'POST',credentials:'include',headers:h,body:JSON.stringify({key:cfg.key,origin:cfg.origin})})` +
         `.then(function(r){return r.json().then(function(b){if(!r.ok)throw new Error('failed');return b})})` +

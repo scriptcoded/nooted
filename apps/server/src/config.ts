@@ -1,4 +1,8 @@
+import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
+
+// Resolved from this file, so it does not depend on the working directory.
+const defaultSdkDistDir = fileURLToPath(new URL('../../../packages/sdk/dist', import.meta.url))
 
 const httpUrl = () => z.url({ protocol: /^https?$/, error: 'must be an absolute http(s) URL' })
 
@@ -14,6 +18,7 @@ const schema = z.object({
     .default(3000),
   DATA_DIR: z.string().min(1, { error: 'must not be empty' }).default('./data'),
   WEB_DIST_DIR: z.string().min(1, { error: 'must not be empty' }).optional(),
+  SDK_DIST_DIR: z.string().min(1, { error: 'must not be empty' }).default(defaultSdkDistDir),
   OIDC_ISSUER: httpUrl(),
   OIDC_CLIENT_ID: z.string().min(1, { error: 'must not be empty' }),
   OIDC_CLIENT_SECRET: z.string().min(1, { error: 'must not be empty' }),
@@ -34,6 +39,7 @@ export type Config = {
   port: number
   dataDir: string
   webDistDir: string | undefined
+  sdkDistDir: string
   oidcIssuer: string
   oidcClientId: string
   oidcClientSecret: string
@@ -68,6 +74,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     port: data.PORT,
     dataDir: data.DATA_DIR,
     webDistDir: data.WEB_DIST_DIR,
+    sdkDistDir: data.SDK_DIST_DIR,
     oidcIssuer: data.OIDC_ISSUER,
     oidcClientId: data.OIDC_CLIENT_ID,
     oidcClientSecret: data.OIDC_CLIENT_SECRET,

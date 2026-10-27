@@ -141,6 +141,16 @@ describe('SDK CORS', () => {
     }
   })
 
+  it('lets an allowed origin read the 401 for a bad token on the reports route', async () => {
+    const { t } = await setup()
+    const res = await t.app.request('/api/sdk/reports', { method: 'POST', headers: { authorization: 'Bearer nt_unknown', origin: ORIGIN } })
+    assert.equal(res.status, 401)
+    assert.equal(res.headers.get('access-control-allow-origin'), ORIGIN)
+    const foreign = await t.app.request('/api/sdk/reports', { method: 'POST', headers: { authorization: 'Bearer nt_unknown', origin: 'https://evil.example' } })
+    assert.equal(foreign.status, 401)
+    assert.equal(foreign.headers.get('access-control-allow-origin'), null)
+  })
+
   it('allows requests without an Origin header', async () => {
     const { send, token } = await probe()
     const res = await send({ authorization: `Bearer ${token}` })
@@ -234,6 +244,16 @@ describe('GET /sdk/sign-in', () => {
     assert.match(body, /nooted:sign-in-error/)
     assert.match(body, /not_member/)
     assert.ok(body.includes(`"${ORIGIN}"`))
+    assert.equal(await tokenCount(t), 0)
+  })
+
+  it('explains a missing opener and names the COOP cause', async () => {
+    const { t, member } = await setup()
+    const res = await t.app.request(signInUrl(), { headers: { cookie: member.cookie } })
+    const body = await res.text()
+    assert.match(body, /report window/)
+    assert.match(body, /Cross-Origin-Opener-Policy/)
+    assert.match(body, /same-origin-allow-popups/)
     assert.equal(await tokenCount(t), 0)
   })
 

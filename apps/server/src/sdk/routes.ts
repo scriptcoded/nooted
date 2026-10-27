@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import type { AppDeps } from '../app.ts'
 import { ingestReport } from '../feedback/ingest.ts'
-import { isOriginAllowedForProject, sdkOriginCheck, sdkPreflight } from './cors.ts'
+import { isOriginAllowedForProject, sdkCorsOnUnauthorized, sdkOriginCheck, sdkPreflight } from './cors.ts'
 import { bearerToken, findUploadToken, requireUploadToken, revokeUploadToken } from './tokens.ts'
 import type { UploadEnv } from './tokens.ts'
 
@@ -30,6 +30,7 @@ export function createSdkApiRoutes(deps: AppDeps) {
     })
     .post(
       '/reports',
+      sdkCorsOnUnauthorized(deps),
       requireUploadToken(deps),
       sdkOriginCheck(deps),
       async (c, next) => {

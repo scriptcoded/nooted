@@ -70,6 +70,9 @@ export function CapturePreview({ capture, api, large, onStyleViolation, onFail }
       unwatch.push(watchViolations(document, onViolation))
       replayer = api.createReplayer(el, capture.events as unknown[])
       handle.current = replayer
+      // An iframe is transparent; a page without its own background is painted on a white canvas by browsers.
+      replayer.iframe.style.background = '#fff'
+      replayer.iframe.style.colorScheme = 'light'
       const doc = replayer.iframe.contentDocument
       if (doc) unwatch.push(watchViolations(doc, onViolation))
 

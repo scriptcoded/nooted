@@ -136,6 +136,10 @@ export function CapturePlayer({ capture, events, failed, large, zoomed = true, o
         wrapper.style.top = '0'
         wrapper.style.left = '0'
         wrapper.style.transformOrigin = '0 0'
+        // An iframe is transparent, so a page without its own background would show the console's
+        // (dark) background. Browsers paint such pages on a white canvas; do the same.
+        replayer.iframe.style.background = '#fff'
+        replayer.iframe.style.colorScheme = 'light'
         replayer.on('finish', () => {
           if (!playingRef.current) return
           // Back to the final frame, ready to play again.

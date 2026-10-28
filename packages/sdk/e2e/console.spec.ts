@@ -54,6 +54,17 @@ test('the list shows the capture count and note chips, and loads no events or re
   await page.close()
 })
 
+test('in dark mode a page without its own background replays on white, not the console background', async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STORAGE_STATE, baseURL: NOOTED_URL, colorScheme: 'dark' })
+  const page = await context.newPage()
+  await page.goto(detailUrl(itemId))
+  const thumb = card(page, 1).getByTestId('capture-thumb')
+  await expect(thumb).toHaveAttribute('data-ready', 'true')
+  const background = await thumb.locator('iframe').evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(background).toBe('rgb(255, 255, 255)')
+  await context.close()
+})
+
 test('clicking a row opens the item', async () => {
   const page = await admin.newPage()
   await page.goto(projectUrl())

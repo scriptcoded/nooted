@@ -18,6 +18,11 @@ export interface ReplayHandle {
   iframe: HTMLIFrameElement
   /** rrweb's `.replayer-wrapper` element, a child of the root passed to createReplayer. */
   wrapper: HTMLElement
+  /**
+   * Bounding box of a recorded node (by its rrweb id) in the replayed frame's
+   * viewport coordinates, or null if the node is missing or not an element.
+   */
+  nodeRect(id: number): { x: number; y: number; width: number; height: number } | null
   destroy(): void
 }
 

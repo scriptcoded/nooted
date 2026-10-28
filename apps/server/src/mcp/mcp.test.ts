@@ -5,6 +5,8 @@ import { gzipSync } from 'node:zlib'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { setup as oauthSetup } from '../oauth/test-utils.ts'
+import { RenderError } from '../render/errors.ts'
+import type { CaptureRenderer, RenderContext } from '../render/renderer.ts'
 import { issueUploadToken } from '../sdk/tokens.ts'
 
 const CHROME = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36'
@@ -38,8 +40,8 @@ const recordingCapture = {
   ],
 }
 
-async function setup() {
-  const s = await oauthSetup()
+async function setup(renderer?: CaptureRenderer) {
+  const s = await oauthSetup({ renderer })
   const { t } = s
   const now = Date.now()
   for (const id of ['p1', 'p2']) {
@@ -85,8 +87,9 @@ async function setup() {
   }
   const call = async (c: Client, name: string, args: Record<string, unknown> = {}) => {
     const r = await c.callTool({ name, arguments: args })
-    const text = (r.content as { type: string; text: string }[]).map((x) => x.text).join('\n')
-    return { r, text, isError: r.isError === true }
+    const content = r.content as { type: string; text?: string; data?: string; mimeType?: string }[]
+    const text = content.filter((x) => x.type === 'text').map((x) => x.text).join('\n')
+    return { r, text, content, isError: r.isError === true }
   }
   const bulk = async (n: number, status = 'new') => {
     const base = 1_700_000_000_000
@@ -135,11 +138,11 @@ describe('/mcp', () => {
     assert.match(res.headers.get('access-control-allow-headers') ?? '', /authorization/i)
   })
 
-  it('lists the four tools', async () => {
+  it('lists the five tools', async () => {
     const s = await setup()
     const { c } = await s.connectClient()
     const { tools } = await c.listTools()
-    assert.deepEqual(tools.map((x) => x.name).sort(), ['get_feedback', 'list_feedback', 'list_projects', 'set_feedback_status'])
+    assert.deepEqual(tools.map((x) => x.name).sort(), ['get_capture_frames', 'get_feedback', 'list_feedback', 'list_projects', 'set_feedback_status'])
     await c.close()
   })
 
@@ -306,5 +309,219 @@ describe('/mcp', () => {
     assert.equal(res.status, 401)
     await assert.rejects(s.call(c, 'list_projects'))
     await c.close().catch(() => {})
+  })
+  describe('capture images', () => {
+    const jpeg = (tag: number) => Buffer.from([0xff, 0xd8, 0xff, tag])
+    const RRWEB_MARKERS = ['"type":2,', 'childNodes', 'rrweb', 'nodeId', 'secret', 'bundle.js', 'initialOffset']
+
+    function fakeRenderer(overrides: Partial<CaptureRenderer> = {}) {
+      const calls: { still: number[]; frames: number[] } = { still: [], frames: [] }
+      const renderer: CaptureRenderer = {
+        available: () => true,
+        still: async (ctx: RenderContext) => {
+          calls.still.push(ctx.capture.n)
+          return jpeg(ctx.capture.n)
+        },
+        frames: async (ctx: RenderContext) => {
+          calls.frames.push(ctx.capture.n)
+          return [
+            { t: 0, caption: '0:00  start', image: jpeg(100) },
+            { t: 12_000, caption: '0:12  end', image: jpeg(101) },
+          ]
+        },
+        close: async () => {},
+        ...overrides,
+      }
+      return { renderer, calls }
+    }
+    const captureN = (n: number) => ({ ...pointCapture, n })
+    const imagesOf = (content: { type: string; data?: string; mimeType?: string }[]) => content.filter((x) => x.type === 'image')
+    const bytesOf = (block: { data?: string }) => [...Buffer.from(block.data ?? '', 'base64')]
+
+    it('returns one labelled image per capture, in order, after the digest', async () => {
+      const { renderer, calls } = fakeRenderer()
+      const s = await setup(renderer)
+      const id = await s.upload('p1', [pointCapture, recordingCapture], 'Make [1] bigger, then see [2]')
+      const { c } = await s.connectClient()
+      const res = await s.call(c, 'get_feedback', { itemId: id })
+      assert.ok(!res.isError, res.text)
+      const kinds = res.content.map((x) => x.type)
+      assert.deepEqual(kinds, ['text', 'text', 'image', 'text', 'image'])
+      assert.match(res.content[0]!.text!, new RegExp(`# Change request ${id}`))
+      assert.match(res.content[1]!.text!, /^\[1\] Pointed at/)
+      assert.match(res.content[3]!.text!, /^\[2\] Recording, 0:12/)
+      const images = imagesOf(res.content)
+      assert.ok(images.every((x) => x.mimeType === 'image/jpeg'))
+      assert.deepEqual(bytesOf(images[0]!), [...jpeg(1)])
+      assert.deepEqual(bytesOf(images[1]!), [...jpeg(2)])
+      assert.deepEqual(calls.still.sort(), [1, 2])
+      assert.ok(!res.text.includes("aren't available"))
+      await c.close()
+    })
+
+    it('says images are not available when there is no renderer', async () => {
+      const s = await setup()
+      const id = await s.upload('p1', [pointCapture], 'Make [1] bigger')
+      const { c } = await s.connectClient()
+      const res = await s.call(c, 'get_feedback', { itemId: id })
+      assert.ok(!res.isError)
+      assert.equal(imagesOf(res.content).length, 0)
+      assert.match(res.text, /Images aren't available on this server\./)
+      assert.match(res.text, /Make \[1\] bigger/)
+      await c.close()
+    })
+
+    it('says so when the renderer reports itself unavailable or fails to launch', async () => {
+      const off = fakeRenderer({ available: () => false })
+      const s1 = await setup(off.renderer)
+      const id1 = await s1.upload('p1', [pointCapture], 'Look [1]')
+      const { c: c1 } = await s1.connectClient()
+      assert.match((await s1.call(c1, 'get_feedback', { itemId: id1 })).text, /Images aren't available on this server\./)
+      assert.deepEqual(off.calls.still, [])
+      await c1.close()
+
+      const broken = fakeRenderer({ still: async () => { throw new RenderError('unavailable', 'no browser') } })
+      const s2 = await setup(broken.renderer)
+      const id2 = await s2.upload('p1', [pointCapture], 'Look [1]')
+      const { c: c2 } = await s2.connectClient()
+      const res = await s2.call(c2, 'get_feedback', { itemId: id2 })
+      assert.ok(!res.isError)
+      assert.match(res.text, /Images aren't available on this server\./)
+      await c2.close()
+    })
+
+    it('returns at most 4 images and names the captures left out', async () => {
+      const { renderer, calls } = fakeRenderer()
+      const s = await setup(renderer)
+      const captures = [1, 2, 3, 4, 5, 6].map(captureN)
+      const id = await s.upload('p1', captures, 'See [1] to [6]')
+      const { c } = await s.connectClient()
+      const res = await s.call(c, 'get_feedback', { itemId: id })
+      assert.equal(imagesOf(res.content).length, 4)
+      assert.deepEqual(calls.still.sort(), [1, 2, 3, 4])
+      assert.match(res.content[0]!.text!, /Images for \[5\], \[6\] aren't included: call get_capture_frames/)
+      await c.close()
+    })
+
+    it('replaces a failed image with a one-line note and keeps the rest', async () => {
+      const { renderer } = fakeRenderer({
+        still: async (ctx) => {
+          if (ctx.capture.n === 1) throw new RenderError('failed', 'boom')
+          return jpeg(ctx.capture.n)
+        },
+      })
+      const s = await setup(renderer)
+      const id = await s.upload('p1', [pointCapture, recordingCapture], 'See [1] and [2]')
+      const { c } = await s.connectClient()
+      const res = await s.call(c, 'get_feedback', { itemId: id })
+      assert.ok(!res.isError)
+      assert.match(res.text, /Image for \[1\] could not be drawn\./)
+      const images = imagesOf(res.content)
+      assert.equal(images.length, 1)
+      assert.deepEqual(bytesOf(images[0]!), [...jpeg(2)])
+      assert.match(res.text, /Recording, 0:12/)
+      await c.close()
+    })
+
+    it('returns the timeline and captioned frames for a recording', async () => {
+      const { renderer, calls } = fakeRenderer()
+      const s = await setup(renderer)
+      const id = await s.upload('p1', [pointCapture, recordingCapture], 'See [2]')
+      const { c } = await s.connectClient()
+      const res = await s.call(c, 'get_capture_frames', { itemId: id, capture: 2 })
+      assert.ok(!res.isError, res.text)
+      assert.deepEqual(res.content.map((x) => x.type), ['text', 'text', 'image', 'text', 'image'])
+      assert.match(res.content[0]!.text!, /Recording, 0:12/)
+      assert.match(res.content[0]!.text!, /Timeline:/)
+      assert.match(res.content[0]!.text!, /navigated to \/checkout/)
+      assert.equal(res.content[1]!.text, '0:00  start')
+      assert.equal(res.content[3]!.text, '0:12  end')
+      assert.deepEqual(bytesOf(imagesOf(res.content)[0]!), [...jpeg(100)])
+      assert.deepEqual(calls.frames, [2])
+      await c.close()
+    })
+
+    it('returns the description and still for a point capture', async () => {
+      const { renderer, calls } = fakeRenderer()
+      const s = await setup(renderer)
+      const id = await s.upload('p1', [pointCapture, recordingCapture], 'See [1]')
+      const { c } = await s.connectClient()
+      const res = await s.call(c, 'get_capture_frames', { itemId: id, capture: 1 })
+      assert.ok(!res.isError, res.text)
+      assert.deepEqual(res.content.map((x) => x.type), ['text', 'image'])
+      assert.match(res.text, /"Add to cart" \(button\)/)
+      assert.match(res.text, /`#fx-counter`/)
+      assert.deepEqual(bytesOf(imagesOf(res.content)[0]!), [...jpeg(1)])
+      assert.deepEqual(calls.still, [1])
+      assert.deepEqual(calls.frames, [])
+      await c.close()
+    })
+
+    it('gives text and a one-line note from get_capture_frames when images are unavailable or fail', async () => {
+      const s = await setup()
+      const id = await s.upload('p1', [pointCapture, recordingCapture], 'See [2]')
+      const { c } = await s.connectClient()
+      const res = await s.call(c, 'get_capture_frames', { itemId: id, capture: 2 })
+      assert.ok(!res.isError)
+      assert.match(res.text, /Recording, 0:12/)
+      assert.match(res.text, /Images aren't available on this server\./)
+      assert.equal(imagesOf(res.content).length, 0)
+      await c.close()
+
+      const { renderer } = fakeRenderer({ frames: async () => { throw new RenderError('timeout', 'slow') } })
+      const s2 = await setup(renderer)
+      const id2 = await s2.upload('p1', [recordingCapture], 'See [2]')
+      const { c: c2 } = await s2.connectClient()
+      const failed = await s2.call(c2, 'get_capture_frames', { itemId: id2, capture: 2 })
+      assert.ok(!failed.isError)
+      assert.match(failed.text, /Images for \[2\] could not be drawn\./)
+      await c2.close()
+    })
+
+    it('reports an unknown capture, an unknown item and another project as not found', async () => {
+      const { renderer, calls } = fakeRenderer()
+      const s = await setup(renderer)
+      const mine = await s.upload('p1', [pointCapture, recordingCapture], 'See [1]')
+      const other = await s.upload('p2', [pointCapture], 'Other [1]')
+      const { c } = await s.connectClient()
+      for (const args of [{ itemId: mine, capture: 7 }, { itemId: 'nope', capture: 1 }, { itemId: other, capture: 1 }]) {
+        const res = await s.call(c, 'get_capture_frames', args)
+        assert.equal(res.isError, true, JSON.stringify(args))
+        assert.equal(res.text, 'Not found.')
+        assert.equal(res.content.length, 1)
+      }
+      const getOther = await s.call(c, 'get_feedback', { itemId: other })
+      assert.equal(getOther.text, 'Not found.')
+      assert.deepEqual([calls.still, calls.frames], [[], []])
+      await c.close()
+    })
+
+    it('refuses get_capture_frames with a write-only token', async () => {
+      const { renderer } = fakeRenderer()
+      const s = await setup(renderer)
+      const id = await s.upload('p1', [pointCapture], 'See [1]')
+      const { c } = await s.connectClient('feedback.write')
+      const res = await s.call(c, 'get_capture_frames', { itemId: id, capture: 1 })
+      assert.equal(res.isError, true)
+      assert.equal(res.text, "This connection doesn't have read access to Nooted.")
+      await c.close()
+    })
+
+    it('never puts rrweb data in any response', async () => {
+      const { renderer } = fakeRenderer()
+      const s = await setup(renderer)
+      const id = await s.upload('p1', [pointCapture, recordingCapture], 'See [1] and [2]')
+      const { c } = await s.connectClient()
+      const responses = [
+        await s.call(c, 'get_feedback', { itemId: id }),
+        await s.call(c, 'get_capture_frames', { itemId: id, capture: 1 }),
+        await s.call(c, 'get_capture_frames', { itemId: id, capture: 2 }),
+      ]
+      for (const res of responses) {
+        const whole = JSON.stringify(res.content.filter((x) => x.type === 'text'))
+        for (const bad of RRWEB_MARKERS) assert.ok(!whole.includes(bad), bad)
+      }
+      await c.close()
+    })
   })
 })

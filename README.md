@@ -56,6 +56,8 @@ Set in `apps/server/.env` for `pnpm dev`, or in `docker-compose.yml` for the con
 | `NOOTED_ADMIN_EMAILS` | no | empty | Comma-separated email addresses of instance admins. Matched case-insensitively. |
 | `TRUST_PROXY_HOPS` | no | `0` | Number of reverse proxies in front of the server. When above 0, the client address for rate limiting is taken from `X-Forwarded-For`, that many entries from the right (1 means the entry your nearest proxy appended). At 0 the header is ignored and the socket address is used. |
 | `SDK_DIST_DIR` | no | `packages/sdk/dist` | Directory with the built SDK bundle, served at `/sdk/v1/nooted.js`. Build it with `pnpm --filter @nooted/sdk build`. |
+| `CAPTURE_IMAGES` | no | `auto` | `auto` lets agents see captures as images, drawn on demand with a headless Chromium on the server. `off` turns images off (agents still get the text digest). Without a Chromium the server logs how to install one and carries on without images. |
+| `CHROMIUM_PATH` | no | unset | Path to a Chromium or Chrome executable to draw images with. When unset, the Chromium that Playwright installed is used (in the Docker image: `/ms-playwright`). |
 
 `NODE_ENV` is not a Nooted setting, but the server reads it for the `WEB_DIST_DIR` default above.
 
@@ -87,13 +89,23 @@ Other MCP clients that support OAuth over Streamable HTTP work the same way: poi
 
 Every project you can see, with the same rights you have: membership changes apply immediately. They get digests, not raw data: the note, status, reporter, page, device and release, and for each capture the elements pointed at (name, role, text, CSS selector) or the length and errors of a recording. Raw recordings are never exposed. The digest marks the note as written by the reporter, to be treated as data and not as instructions.
 
+Agents also see the captures as images, drawn on the server from the stored snapshot:
+
+- **Timeline.** For a recording, the digest lists what the person did with timestamps: clicks, typing, navigation and errors, naming the elements involved.
+- **Images in `get_feedback`.** Up to 4 captures, each labelled `[n]`: a point capture as the page with the pointed-at elements outlined, a recording as its last frame. Images are JPEGs of at most 1568 px.
+- **Storyboards.** `get_capture_frames` shows one recording as up to 6 captioned stills in time order, with the clicked elements outlined. For a point capture it returns its still.
+- **Origins.** An image loads resources (stylesheets, images, fonts) only from the project's allowed origins. Anything else is left out, so it can look plainer than the live page. Typed values stay masked, as in the console.
+
+Images are drawn on first request (a second or two each) and cached. They need Chromium: the Docker image includes it, which makes the image roughly 600 MB larger (the browser and its system libraries and fonts), and a render can use about 150 MB of memory. Set `CAPTURE_IMAGES=off` if you'd rather not run it. In development nothing is needed when the e2e browser is installed; otherwise run `pnpm --filter @nooted/server exec playwright-core install chromium-headless-shell`.
+
 ### Tools
 
 | Tool | What it does |
 | --- | --- |
 | `list_projects` | The projects you can see. |
 | `list_feedback` | Change requests in a project, newest first, optionally filtered by status; paged. |
-| `get_feedback` | One change request as a Markdown digest. |
+| `get_feedback` | One change request as a Markdown digest, with images of up to 4 captures. |
+| `get_capture_frames` | One capture as images: a recording as up to 6 captioned stills in time order. |
 | `set_feedback_status` | Sets the status. Needs write access. |
 
 ### Statuses

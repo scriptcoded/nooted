@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { createHash, randomBytes } from 'node:crypto'
+import type { CaptureRenderer } from '../render/renderer.ts'
 import { createTestApp, signIn } from '../test-helpers.ts'
 
 export const ORIGIN = 'http://localhost:5173'
@@ -8,9 +9,9 @@ export const RESOURCE = `${ORIGIN}/mcp`
 
 export type Clock = { t: number }
 
-export async function setup() {
+export async function setup(options: { renderer?: CaptureRenderer } = {}) {
   const clock: Clock = { t: 1_800_000_000_000 }
-  const t = await createTestApp({ oauth: { now: () => clock.t } })
+  const t = await createTestApp({ oauth: { now: () => clock.t }, renderer: options.renderer })
   const user = await signIn(t, { email: 'user@example.com' })
   const other = await signIn(t, { email: 'other@example.com' })
   const json = (path: string, body: unknown, headers: Record<string, string> = {}) =>

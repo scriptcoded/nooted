@@ -9,6 +9,7 @@ import { migrateToLatest } from './db/migrate.ts'
 import { createKysely, openDatabase } from './db/node-sqlite-adapter.ts'
 import type { DB } from './db/schema.ts'
 import type { OauthHooks } from './oauth/shared.ts'
+import type { CaptureRenderer } from './render/renderer.ts'
 
 export type FakeOidc = OidcProvider & { identity: OidcIdentity }
 
@@ -39,6 +40,8 @@ export const testConfig: Config = {
   dataDir: './data',
   webDistDir: undefined,
   sdkDistDir: '/nonexistent/nooted-sdk-dist',
+  captureImages: 'off',
+  chromiumPath: undefined,
   oidcIssuer: 'http://oidc.test',
   oidcClientId: 'nooted',
   oidcClientSecret: 'secret',
@@ -46,13 +49,13 @@ export const testConfig: Config = {
   trustProxyHops: 0,
 }
 
-export async function createTestApp(overrides: { config?: Partial<Config>; identity?: Partial<OidcIdentity>; oauth?: OauthHooks } = {}) {
+export async function createTestApp(overrides: { config?: Partial<Config>; identity?: Partial<OidcIdentity>; oauth?: OauthHooks; renderer?: CaptureRenderer } = {}) {
   const config: Config = { ...testConfig, ...overrides.config }
   const db = createKysely<DB>(openDatabase(':memory:'))
   await migrateToLatest(db)
   const blobs = createFsBlobStore(await mkdtemp(join(tmpdir(), 'nooted-test-blobs-')))
   const oidc = createFakeOidc(overrides.identity)
-  const app = createApp({ config, db, blobs, oidc, oauth: overrides.oauth })
+  const app = createApp({ config, db, blobs, oidc, oauth: overrides.oauth, renderer: overrides.renderer })
   return { app, db, blobs, oidc, config }
 }
 

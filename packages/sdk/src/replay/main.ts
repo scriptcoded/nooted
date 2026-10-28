@@ -19,6 +19,16 @@ function createReplayer(root: HTMLElement, events: unknown[], options: ReplayOpt
     duration: replayer.getMetaData().totalTime,
     iframe: replayer.iframe,
     wrapper: replayer.wrapper,
+    nodeRect: (id) => {
+      try {
+        const node = replayer.getMirror().getNode(id)
+        if (!node || node.nodeType !== 1) return null
+        const r = (node as Element).getBoundingClientRect()
+        return { x: r.x, y: r.y, width: r.width, height: r.height }
+      } catch {
+        return null
+      }
+    },
     destroy: () => replayer.destroy(),
   }
 }

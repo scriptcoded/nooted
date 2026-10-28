@@ -13,6 +13,7 @@ import { migrateToLatest } from './db/migrate.ts'
 import { createKysely, openDatabase } from './db/node-sqlite-adapter.ts'
 import type { DB } from './db/schema.ts'
 import { cleanupOauth } from './oauth/cleanup.ts'
+import { createCaptureRenderer } from './render/renderer.ts'
 
 const config = loadConfig()
 
@@ -37,7 +38,11 @@ const webDistDir =
     ? resolve(dirname(fileURLToPath(import.meta.url)), '../../web/dist')
     : undefined)
 
-const app = new Hono().route('/', createApp({ config, db, blobs, oidc }))
+const renderer = createCaptureRenderer({ config, blobs })
+// playwright-core closes its browser on SIGINT/SIGTERM itself; this covers a normal exit.
+process.on('exit', () => void renderer.close())
+
+const app = new Hono().route('/', createApp({ config, db, blobs, oidc, renderer }))
 
 if (webDistDir) {
   if (!existsSync(join(webDistDir, 'index.html'))) {

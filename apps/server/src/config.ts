@@ -19,6 +19,8 @@ const schema = z.object({
   DATA_DIR: z.string().min(1, { error: 'must not be empty' }).default('./data'),
   WEB_DIST_DIR: z.string().min(1, { error: 'must not be empty' }).optional(),
   SDK_DIST_DIR: z.string().min(1, { error: 'must not be empty' }).default(defaultSdkDistDir),
+  CAPTURE_IMAGES: z.enum(['auto', 'off'], { error: 'must be auto or off' }).default('auto'),
+  CHROMIUM_PATH: z.string().min(1, { error: 'must not be empty' }).optional(),
   OIDC_ISSUER: httpUrl(),
   OIDC_CLIENT_ID: z.string().min(1, { error: 'must not be empty' }),
   OIDC_CLIENT_SECRET: z.string().min(1, { error: 'must not be empty' }),
@@ -45,6 +47,8 @@ export type Config = {
   dataDir: string
   webDistDir: string | undefined
   sdkDistDir: string
+  captureImages: 'auto' | 'off'
+  chromiumPath: string | undefined
   oidcIssuer: string
   oidcClientId: string
   oidcClientSecret: string
@@ -81,6 +85,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     dataDir: data.DATA_DIR,
     webDistDir: data.WEB_DIST_DIR,
     sdkDistDir: data.SDK_DIST_DIR,
+    captureImages: data.CAPTURE_IMAGES,
+    chromiumPath: data.CHROMIUM_PATH,
     oidcIssuer: data.OIDC_ISSUER,
     oidcClientId: data.OIDC_CLIENT_ID,
     oidcClientSecret: data.OIDC_CLIENT_SECRET,

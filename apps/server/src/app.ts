@@ -9,6 +9,7 @@ import { frameHeaders } from './frame-headers.ts'
 import type { Config } from './config.ts'
 import type { DB } from './db/schema.ts'
 import { createMcpRoutes } from './mcp/routes.ts'
+import type { CaptureRenderer } from './render/renderer.ts'
 import { createOauthApiRoutes, createOauthRoutes } from './oauth/routes.ts'
 import type { OauthHooks } from './oauth/shared.ts'
 import { createProjectRoutes } from './projects/routes.ts'
@@ -21,6 +22,8 @@ export type AppDeps = {
   db: Kysely<DB>
   blobs: BlobStore
   oidc: OidcProvider
+  /** Draws capture images for MCP. Absent means images aren't available. */
+  renderer?: CaptureRenderer
   /** Test hooks: a fake clock and the registration rate limiter. */
   oauth?: OauthHooks
 }

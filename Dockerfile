@@ -29,6 +29,12 @@ ENV NODE_ENV=production \
   PORT=3000
 
 COPY --from=build /app /app
+# Chromium (headless shell) and its system libraries and fonts, so the server can draw captures as images for agents.
+# Installed as root into a shared path the node user can read; playwright-core is the version pinned by the server.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN node apps/server/node_modules/playwright-core/cli.js install --with-deps chromium-headless-shell \
+  && rm -rf /var/lib/apt/lists/* \
+  && chmod -R a+rX /ms-playwright
 RUN mkdir /data && chown node:node /data
 VOLUME /data
 EXPOSE 3000

@@ -21,6 +21,8 @@ describe('loadConfig', () => {
       dataDir: './data',
       webDistDir: undefined,
       sdkDistDir: fileURLToPath(new URL('../../../packages/sdk/dist', import.meta.url)),
+      captureImages: 'auto',
+      chromiumPath: undefined,
       oidcIssuer: 'http://localhost:5556/dex',
       oidcClientId: 'nooted',
       oidcClientSecret: 'nooted-dev-secret',
@@ -46,6 +48,15 @@ describe('loadConfig', () => {
     assert.equal(loadConfig(valid).sdkDistDir, fileURLToPath(new URL('../../../packages/sdk/dist', import.meta.url)))
     assert.equal(loadConfig({ ...valid, SDK_DIST_DIR: '/srv/sdk' }).sdkDistDir, '/srv/sdk')
     assert.equal(loadConfig({ ...valid, SDK_DIST_DIR: '   ' }).sdkDistDir, loadConfig(valid).sdkDistDir)
+  })
+
+  it('reads CAPTURE_IMAGES (auto or off) and an optional CHROMIUM_PATH', () => {
+    assert.equal(loadConfig(valid).captureImages, 'auto')
+    assert.equal(loadConfig({ ...valid, CAPTURE_IMAGES: 'off' }).captureImages, 'off')
+    assert.equal(loadConfig({ ...valid, CAPTURE_IMAGES: '' }).captureImages, 'auto')
+    assert.throws(() => loadConfig({ ...valid, CAPTURE_IMAGES: 'on' }), /- CAPTURE_IMAGES: /)
+    assert.equal(loadConfig({ ...valid, CHROMIUM_PATH: '/usr/bin/chromium' }).chromiumPath, '/usr/bin/chromium')
+    assert.equal(loadConfig({ ...valid, CHROMIUM_PATH: ' ' }).chromiumPath, undefined)
   })
 
   it('applies defaults for PORT and DATA_DIR and treats blank values as unset', () => {

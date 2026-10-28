@@ -163,6 +163,10 @@ describe('buildDigest', () => {
         'Errors during the recording:',
         '- TypeError: x is undefined',
         '- second error',
+        'Timeline:',
+        '0:01  error: TypeError: x is undefined',
+        '0:01  error: second error',
+        '0:10  navigated to /checkout',
         '',
       ].join('\n'),
     )
@@ -183,6 +187,10 @@ describe('buildDigest', () => {
         `- ${'x'.repeat(300)}`,
         ...errors.slice(1, 10).map((e) => `- ${e}`),
         '(and 2 more)',
+        'Timeline:',
+        `0:01  error: ${'x'.repeat(300)}`,
+        ...errors.slice(1).map((e) => `0:01  error: ${e}`),
+        '0:10  navigated to /checkout',
         '',
       ].join('\n'),
     )
@@ -254,6 +262,47 @@ describe('buildDigest', () => {
         '',
       ].join('\n'),
     )
+  })
+
+  it('lists clicks, typing and navigation in a recording timeline without typed values', () => {
+    const el = (id: number, tagName: string, attributes: Record<string, string>, childNodes: unknown[] = []) => ({
+      type: 2, id, tagName, attributes, childNodes,
+    })
+    const text = (id: number, textContent: string) => ({ type: 3, id, textContent })
+    const doc = {
+      type: 0, id: 1, childNodes: [
+        el(2, 'html', {}, [el(3, 'body', {}, [
+          el(4, 'button', { id: 'buy' }, [el(5, 'span', {}, [text(6, 'Add to cart')])]),
+          el(7, 'input', { type: 'email', placeholder: 'Email', value: '*****' }),
+        ])]),
+      ],
+    }
+    const cap = recording(1, [], {
+      events: [
+        { type: 4, timestamp: 10_000, data: { href: 'https://shop.example/cart' } },
+        { type: 2, timestamp: 10_001, data: { node: doc } },
+        { type: 3, timestamp: 11_000, data: { source: 2, type: 2, id: 6 } },
+        { type: 3, timestamp: 12_000, data: { source: 5, id: 7, text: 'secret@example.com', isChecked: false } },
+        { type: 3, timestamp: 12_300, data: { source: 5, id: 7, text: 'secret-two@example.com', isChecked: false } },
+        { type: 4, timestamp: 14_000, data: { href: 'https://shop.example/checkout' } },
+      ],
+    })
+    const out = digest(item(), v2([cap]))
+    expect(out).toBe(
+      [
+        ...HEAD,
+        ...fenced('Fix [1]'),
+        '',
+        '## Captures',
+        '### [1] Recording, 0:04, from /cart to /checkout',
+        'Timeline:',
+        '0:01  clicked button "Add to cart" (selector `#buy`)',
+        '0:02  typed in textbox "Email" (selector `body > input`)',
+        '0:04  navigated to /checkout',
+        '',
+      ].join('\n'),
+    )
+    expect(out).not.toContain('secret')
   })
 
   it('never leaks raw recording data', () => {

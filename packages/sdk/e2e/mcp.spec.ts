@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { consoleContextAs, readProject } from './helpers.ts'
@@ -87,7 +89,7 @@ test('authorizing in the browser shows the consent page and Allow returns a code
 test('MCP lists tools, projects and the report, and the digest has the note, selector and recording', async () => {
   mcp = await connectMcp(tokens.access_token)
   const names = (await mcp.listTools()).tools.map((t) => t.name).sort()
-  expect(names).toEqual(['get_feedback', 'list_feedback', 'list_projects', 'set_feedback_status'])
+  expect(names).toEqual(['get_capture_frames', 'get_feedback', 'list_feedback', 'list_projects', 'set_feedback_status'])
 
   const { id: projectId } = readProject()
   const projects = await callTool(mcp, 'list_projects')
@@ -104,10 +106,80 @@ test('MCP lists tools, projects and the report, and the digest has the note, sel
   expect(digest.text).toContain('Pointed at')
   expect(digest.text).toContain('#fx-counter')
   expect(digest.text).toContain('Recording')
+  expect(digest.text).toContain('Timeline')
 
   const everything = JSON.stringify([projects.raw, list.raw, digest.raw])
   expect(everything).not.toContain('"type":2')
   expect(everything).not.toContain('nodeId')
+})
+
+/** Reads a JPEG's size from its SOF header, after checking the SOI and EOI markers. */
+function jpegSize(data: Buffer): { width: number; height: number } {
+  expect(data.subarray(0, 2).toString('hex')).toBe('ffd8')
+  expect(data.subarray(-2).toString('hex')).toBe('ffd9')
+  let i = 2
+  while (i < data.length) {
+    expect(data[i]).toBe(0xff)
+    const marker = data[i + 1]!
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      return { height: data.readUInt16BE(i + 5), width: data.readUInt16BE(i + 7) }
+    }
+    i += 2 + data.readUInt16BE(i + 2)
+  }
+  throw new Error('no SOF marker')
+}
+
+function imagesOf(raw: Awaited<ReturnType<typeof callTool>>['raw'], name: string) {
+  const dir = test.info().outputPath()
+  const out = resolve(test.info().config.rootDir, '../test-results')
+  mkdirSync(dir, { recursive: true })
+  mkdirSync(out, { recursive: true })
+  return raw.content.flatMap((c, i) => {
+    if (c.type !== 'image') return []
+    expect(c.mimeType).toBe('image/jpeg')
+    const data = Buffer.from(c.data, 'base64')
+    const size = jpegSize(data)
+    expect(Math.max(size.width, size.height)).toBeLessThanOrEqual(1568)
+    writeFileSync(`${out}/mcp-${name}-${i}.jpg`, data)
+    return [{ data, ...size, index: i }]
+  })
+}
+
+test('get_feedback returns images of the captures and get_capture_frames a storyboard of the recording', async () => {
+  test.setTimeout(90_000)
+  const feedbackResult = await callTool(mcp!, 'get_feedback', { itemId })
+  expect(feedbackResult.text).toContain('Timeline:')
+  expect(feedbackResult.text).not.toContain("aren't included")
+  expect(feedbackResult.text).not.toContain('Images are turned off')
+  const images = imagesOf(feedbackResult.raw, 'feedback')
+  expect(images).toHaveLength(3)
+  const viewport = /viewport (\d+)×(\d+)/.exec(feedbackResult.text)
+  expect(viewport).toBeTruthy()
+  for (const image of images) {
+    const scale = Math.min(1, 1568 / Math.max(Number(viewport![1]), Number(viewport![2])))
+    expect(Math.abs(image.width - Math.round(Number(viewport![1]) * scale))).toBeLessThanOrEqual(2)
+    expect(Math.abs(image.height - Math.round(Number(viewport![2]) * scale))).toBeLessThanOrEqual(2)
+    expect(image.data.length).toBeGreaterThan(2_000)
+  }
+
+  const frames = await callTool(mcp!, 'get_capture_frames', { itemId, capture: 2 })
+  expect(frames.raw.isError).toBeFalsy()
+  const stills = imagesOf(frames.raw, 'frames')
+  expect(stills.length).toBeGreaterThanOrEqual(2)
+  // The recording's last frame has the menu open, so it differs from the first frame of the storyboard.
+  expect(images[1]!.data.equals(stills[0]!.data)).toBe(false)
+  expect(stills.length).toBeLessThanOrEqual(6)
+  const captions = frames.raw.content.flatMap((c) => (c.type === 'text' ? [c.text] : [])).slice(1)
+  expect(captions).toHaveLength(stills.length)
+  const times = captions.map((caption) => {
+    const m = /(\d+):(\d{2})/.exec(caption)
+    expect(m, caption).toBeTruthy()
+    return Number(m![1]) * 60 + Number(m![2])
+  })
+  expect(times).toEqual([...times].sort((a, b) => a - b))
+  const still = await callTool(mcp!, 'get_capture_frames', { itemId, capture: 1 })
+  expect(imagesOf(still.raw, 'point')).toHaveLength(1)
+  expect((await callTool(mcp!, 'get_capture_frames', { itemId, capture: 99 })).raw.isError).toBe(true)
 })
 
 test('set_feedback_status shows in the console list, and a console change shows through MCP', async () => {

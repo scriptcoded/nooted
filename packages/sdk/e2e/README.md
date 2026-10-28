@@ -5,8 +5,8 @@ Playwright (Chromium) tests that run the real loader and runtime against a real 
 ## Prerequisites
 
 - Dex running: `docker compose up -d dex` (from the repo root).
-- `pnpm dev` stopped. The tests start their own server on `:3000` and playground on `:5174` and
-  fail fast with a message if either port is taken. (Dex only allows `:3000` and `:5173` as console redirect URIs.)
+- The tests start their own server on `:4820` and playground on `:4821`, so they can run next to `pnpm dev`,
+  and fail fast with a message if either port is taken. (Dex allows `:4820` as the e2e console redirect URI.)
 - Chromium installed: `pnpm --filter @nooted/sdk exec playwright install chromium`
 
 ## Running
@@ -20,7 +20,7 @@ E2E_VERBOSE=1 pnpm --filter @nooted/sdk e2e      # also print server and playgro
 ## What happens
 
 `global-setup.ts` builds the runtime (`dist/nooted.js`) and the console (`apps/web/dist`), starts `apps/server` on a temp `DATA_DIR` that also serves the console on the server origin, signs
-in as `admin@example.com` through Dex, creates a project allowing `http://localhost:5174`, then starts the
+in as `admin@example.com` through Dex, creates a project allowing `http://localhost:4821`, then starts the
 playground with that project's key in `NOOTED_PROJECT_KEY`. Both processes and the temp directory are
 removed afterwards. The admin session (`.auth/admin.json`) and the project id and key (`.auth/project.json`, which also holds the temp `dataDir`)
 are written for the tests and are gitignored. Your `.env.local` is never touched.
@@ -28,5 +28,5 @@ are written for the tests and are gitignored. Your `.env.local` is never touched
 The playground picks a policy per request from the page URL: `?csp=strict|nonce|missing` and
 `?coop=same-origin` (see `playground/vite.config.ts`).
 
-To run beside a `pnpm dev` that holds the default ports, point the harness at another Dex that allows the
-redirect URI, e.g. `E2E_SERVER_PORT`, `E2E_PLAYGROUND_PORT` and `E2E_OIDC_ISSUER` (see `env.ts`).
+To use other ports, set `E2E_SERVER_PORT` and `E2E_PLAYGROUND_PORT`; a different server port also needs
+`E2E_OIDC_ISSUER` pointing at a Dex that allows its redirect URI (see `env.ts`).

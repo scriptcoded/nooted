@@ -5,8 +5,12 @@ import { requireUser } from './auth/middleware.ts'
 import type { OidcProvider } from './auth/oidc.ts'
 import { createAuthRoutes } from './auth/routes.ts'
 import type { BlobStore } from './blobs.ts'
+import { frameHeaders } from './frame-headers.ts'
 import type { Config } from './config.ts'
 import type { DB } from './db/schema.ts'
+import { createMcpRoutes } from './mcp/routes.ts'
+import { createOauthApiRoutes, createOauthRoutes } from './oauth/routes.ts'
+import type { OauthHooks } from './oauth/shared.ts'
 import { createProjectRoutes } from './projects/routes.ts'
 import { createSdkBundleRoutes } from './sdk/bundle.ts'
 import { createSdkApiRoutes } from './sdk/routes.ts'
@@ -17,6 +21,8 @@ export type AppDeps = {
   db: Kysely<DB>
   blobs: BlobStore
   oidc: OidcProvider
+  /** Test hooks: a fake clock and the registration rate limiter. */
+  oauth?: OauthHooks
 }
 
 // No CORS on the console API: it is same-origin. SDK routes add their own CORS.
@@ -26,11 +32,15 @@ export function createApp(deps: AppDeps) {
     .get('/me', requireUser(deps), (c) => c.json(c.var.user))
     .route('/projects', createProjectRoutes(deps))
     .route('/sdk', createSdkApiRoutes(deps))
+    .route('/oauth', createOauthApiRoutes(deps))
 
   return new Hono()
     .use(logger())
+    .use(frameHeaders)
     .route('/api', api)
     .route('/auth', createAuthRoutes(deps))
+    .route('/', createOauthRoutes(deps))
+    .route('/', createMcpRoutes(deps))
     .route('/sdk', createSdkBundleRoutes(deps))
     .route('/sdk', createSdkSignInRoutes(deps))
 }

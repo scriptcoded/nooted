@@ -5,7 +5,7 @@ import { defineConfig, loadEnv, type Plugin } from 'vite'
 import { nooted } from '../src/vite.ts'
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
-const DEFAULT_NOOTED_URL = 'http://localhost:5173'
+const DEFAULT_NOOTED_URL = 'http://localhost:4800'
 const PLACEHOLDER_KEY = 'pk_playground_placeholder'
 
 /**
@@ -26,7 +26,7 @@ function playgroundHeaders(nootedOrigin: string): Plugin {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         // Only the HTML document carries the policy; modules and assets don't need it.
-        if (req.headers.accept?.includes('text/html')) applyHeaders(req.url ?? '/', req.headers.host ?? 'localhost:5174', nootedOrigin, res)
+        if (req.headers.accept?.includes('text/html')) applyHeaders(req.url ?? '/', req.headers.host ?? 'localhost:4801', nootedOrigin, res)
         next()
       })
     },
@@ -75,7 +75,7 @@ export default defineConfig(({ mode }) => {
     console.warn(
       '\n[nooted playground] NOOTED_PROJECT_KEY is not set. Create packages/sdk/.env.local with:\n' +
         '  NOOTED_PROJECT_KEY=<public key from the console>\n' +
-        '  (optional) NOOTED_URL=http://localhost:5173\n' +
+        '  (optional) NOOTED_URL=http://localhost:4800\n' +
         'Serving with a placeholder key, so the loader will not be able to sign in.\n',
     )
   }
@@ -86,7 +86,8 @@ export default defineConfig(({ mode }) => {
     envDir: packageRoot,
     plugins: [nooted({ projectKey, nootedUrl }), playgroundHeaders(nootedUrl.replace(/\/+$/, ''))],
     server: {
-      port: 5174,
+      host: true,
+      port: 4801,
       strictPort: true,
     },
   }

@@ -1,8 +1,11 @@
 import { createHash } from 'node:crypto'
 import { REPORT_LIMITS } from '@nooted/shared'
 import type { Mark } from '@nooted/shared'
+import { FEEDBACK_STATUSES } from '@nooted/shared/status'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import type { AppDeps } from '../app.ts'
+import { validate } from '../validation.ts'
 import type { AuthEnv } from '../auth/middleware.ts'
 import { createProjectRepo } from '../projects/repo.ts'
 import { createFeedbackRepo } from './repo.ts'
@@ -21,6 +24,8 @@ type DetailCapture = {
 }
 
 // Mounted inside the projects router, which has already required a session.
+const statusBody = z.object({ status: z.enum(FEEDBACK_STATUSES) })
+
 export function createFeedbackRoutes(deps: AppDeps, store: ReportStore = createReportStore(deps)) {
   const projects = createProjectRepo(deps.db, deps.blobs)
   const feedback = createFeedbackRepo(deps.db)
@@ -74,6 +79,13 @@ export function createFeedbackRoutes(deps: AppDeps, store: ReportStore = createR
       c.header('ETag', etag)
       if (c.req.header('if-none-match') === etag) return c.body(null, 304)
       return c.json(body)
+    })
+    .patch('/:id/feedback/:itemId', validate('json', statusBody), async (c) => {
+      const item = await find(c.var.user, c.req.param('id'), c.req.param('itemId'))
+      if (!item) return c.json(notFound, 404)
+      const { status } = c.req.valid('json')
+      await feedback.setStatus(c.req.param('id'), item.id, status)
+      return c.json({ status })
     })
     .get('/:id/feedback/:itemId/captures/:n/events', async (c) => {
       const n = Number(c.req.param('n'))

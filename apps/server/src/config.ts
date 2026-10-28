@@ -22,6 +22,11 @@ const schema = z.object({
   OIDC_ISSUER: httpUrl(),
   OIDC_CLIENT_ID: z.string().min(1, { error: 'must not be empty' }),
   OIDC_CLIENT_SECRET: z.string().min(1, { error: 'must not be empty' }),
+  TRUST_PROXY_HOPS: z.coerce
+    .number({ error: 'must be a number' })
+    .int({ error: 'must be an integer' })
+    .min(0, { error: 'must be 0 or more' })
+    .default(0),
   NOOTED_ADMIN_EMAILS: z
     .string()
     .default('')
@@ -44,6 +49,7 @@ export type Config = {
   oidcClientId: string
   oidcClientSecret: string
   adminEmails: string[]
+  trustProxyHops: number
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
@@ -79,5 +85,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     oidcClientId: data.OIDC_CLIENT_ID,
     oidcClientSecret: data.OIDC_CLIENT_SECRET,
     adminEmails: data.NOOTED_ADMIN_EMAILS,
+    trustProxyHops: data.TRUST_PROXY_HOPS,
   }
 }

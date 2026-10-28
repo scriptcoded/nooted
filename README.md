@@ -13,11 +13,11 @@ Nooted collects in-app feedback from your users. A small SDK on your site lets u
 ```sh
 pnpm i
 cp apps/server/.env.example apps/server/.env
-docker compose up -d dex   # local OIDC provider on http://localhost:5556/dex
-pnpm dev                   # server on :3000, console on http://localhost:5173
+docker compose up -d dex   # local OIDC provider on http://localhost:4856/dex
+pnpm dev                   # server on :4810, console on http://localhost:4800
 ```
 
-Open http://localhost:5173 and sign in with `admin@example.com` / `password`. The admin can create projects and sees every project. `dev@example.com` (same password) is a regular user, useful for testing membership and the "not a member" path.
+Open http://localhost:4800 and sign in with `admin@example.com` / `password`. The admin can create projects and sees every project. `dev@example.com` (same password) is a regular user, useful for testing membership and the "not a member" path.
 
 Vite proxies `/api`, `/auth` and `/sdk` to the server, so the console and the API share one origin in both dev and production.
 
@@ -34,9 +34,9 @@ pnpm -r test     # node --test for the server and the shared package
 docker compose --profile app up --build
 ```
 
-This builds the image (the console is built into it) and serves everything on http://localhost:3000. Sign in with the same accounts. Stop it with `docker compose --profile app down` (add `-v` to delete the data volume).
+This builds the image (the console is built into it) and serves everything on http://localhost:4810. Sign in with the same accounts. Stop it with `docker compose --profile app down` (add `-v` to delete the data volume).
 
-Both Dex services publish port 5556, so stop the dev one first if it is running (`docker compose stop dex`). The compose setup works like this: the `server` container shares the network namespace of `dex-app`. The issuer is therefore `http://localhost:5556/dex` for the browser and for the server alike, and no `/etc/hosts` edits are needed. Dex's static client allows the redirect URI for both `http://localhost:5173` and `http://localhost:3000`.
+Both Dex services publish port 4856, so stop the dev one first if it is running (`docker compose stop dex`). The compose setup works like this: the `server` container shares the network namespace of `dex-app`. The issuer is therefore `http://localhost:4856/dex` for the browser and for the server alike, and no `/etc/hosts` edits are needed. Dex's static client allows the redirect URI for `http://localhost:4800` (dev), `http://localhost:4810` (compose) and `http://localhost:4820` (e2e).
 
 Data lives in the named volume `nooted-data`, mounted at `/data`.
 
@@ -46,14 +46,15 @@ Set in `apps/server/.env` for `pnpm dev`, or in `docker-compose.yml` for the con
 
 | Name | Required | Default | Description |
 | --- | --- | --- | --- |
-| `PUBLIC_URL` | yes | none | Public origin of Nooted's console, for example `http://localhost:5173` in dev or `http://localhost:3000` in Docker. Used for the OIDC redirect URI and cookies. No trailing slash. |
+| `PUBLIC_URL` | yes | none | Public origin of Nooted's console, for example `http://localhost:4800` in dev or `http://localhost:4810` with the compose setup. Used for the OIDC redirect URI and cookies. No trailing slash. |
 | `PORT` | no | `3000` | Port the HTTP server listens on. |
 | `DATA_DIR` | no | `./data` | Directory for the SQLite database (`nooted.db`) and uploaded report blobs. Relative to the working directory. In Docker: `/data`. |
 | `WEB_DIST_DIR` | no | unset | Directory with the built console, served with an SPA fallback. When unset and `NODE_ENV=production`, it defaults to `apps/web/dist` next to the server. Set to `/app/apps/web/dist` in the Docker image. |
-| `OIDC_ISSUER` | yes | none | Issuer URL of the OpenID Connect provider. Dev: `http://localhost:5556/dex`. |
+| `OIDC_ISSUER` | yes | none | Issuer URL of the OpenID Connect provider. Dev: `http://localhost:4856/dex`. |
 | `OIDC_CLIENT_ID` | yes | none | Client ID registered with the provider. Dev: `nooted`. |
 | `OIDC_CLIENT_SECRET` | yes | none | Client secret for that client. Dev: `nooted-dev-secret`. |
 | `NOOTED_ADMIN_EMAILS` | no | empty | Comma-separated email addresses of instance admins. Matched case-insensitively. |
+| `TRUST_PROXY_HOPS` | no | `0` | Number of reverse proxies in front of the server. When above 0, the client address for rate limiting is taken from `X-Forwarded-For`, that many entries from the right (1 means the entry your nearest proxy appended). At 0 the header is ignored and the socket address is used. |
 | `SDK_DIST_DIR` | no | `packages/sdk/dist` | Directory with the built SDK bundle, served at `/sdk/v1/nooted.js`. Build it with `pnpm --filter @nooted/sdk build`. |
 
 `NODE_ENV` is not a Nooted setting, but the server reads it for the `WEB_DIST_DIR` default above.
@@ -67,6 +68,49 @@ Project members review reports in the console (`/projects/<id>`). Captures are v
 - **Captures.** Each capture is a card with a thumbnail. A Point capture lists the elements the reporter pointed at (name, role, text) and their CSS selector with a button to copy it. The thumbnail frames the selection with the marks drawn on it; a capture without marks is the whole page. A recording shows its length and a play glyph.
 - **Large view.** Click a thumbnail to open it larger. Point captures can toggle between the framed selection and the whole page. Recordings play inside the dialog (Play, Pause).
 - **Older reports.** Reports sent before captures existed show a notice instead of captures.
+
+## Agents (MCP)
+
+Nooted runs an [MCP](https://modelcontextprotocol.io) server at `<origin>/mcp`, so a coding agent can read the change requests in your projects and mark them done. Access is by OAuth: you approve each agent in the console, and you can disconnect it at any time.
+
+### Connecting Claude Code
+
+```sh
+claude mcp add --transport http nooted http://localhost:4800/mcp
+```
+
+Use your own origin in production (`<PUBLIC_URL>/mcp`). Then run `/mcp` inside Claude Code, choose `nooted` and select **Authenticate**. The browser opens Nooted's consent page; sign in if asked, and choose **Allow**. Under Settings, **Connected agents** shows the same command with your origin and a copy button.
+
+Other MCP clients that support OAuth over Streamable HTTP work the same way: point them at `<origin>/mcp`. They find the authorization server through the standard discovery documents (`/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-authorization-server`), register themselves (dynamic client registration), and use authorization code with PKCE (`S256`).
+
+### What agents can see
+
+Every project you can see, with the same rights you have: membership changes apply immediately. They get digests, not raw data: the note, status, reporter, page, device and release, and for each capture the elements pointed at (name, role, text, CSS selector) or the length and errors of a recording. Raw recordings are never exposed. The digest marks the note as written by the reporter, to be treated as data and not as instructions.
+
+### Tools
+
+| Tool | What it does |
+| --- | --- |
+| `list_projects` | The projects you can see. |
+| `list_feedback` | Change requests in a project, newest first, optionally filtered by status; paged. |
+| `get_feedback` | One change request as a Markdown digest. |
+| `set_feedback_status` | Sets the status. Needs write access. |
+
+### Statuses
+
+A change request is **New**, **In progress**, **Done** or **Dismissed**. Change it on the item page (click the status) or let an agent set it. Agents that were only given read access cannot. The list shows the status as a chip.
+
+### Managing agents
+
+Open **Connected agents** from the account menu in the console (`/settings/agents`). It lists each agent with its access (Read, or Read and update status) and when it was last used. **Revoke** ends the connection at once: its access and refresh tokens stop working.
+
+### Security notes
+
+- The tokens only work for `/mcp`. They are rejected by every other API, and the SDK upload tokens are rejected by `/mcp`.
+- Access tokens last 1 hour. Refresh tokens rotate on every use, and reusing an old one revokes the tokens it produced.
+- Only a hash of each token is stored.
+- Redirect URIs must be `https`, or `http` on a loopback address.
+- Behind a reverse proxy, set `TRUST_PROXY_HOPS` (see Configuration) so registration rate limits see the real client address.
 
 ## SDK
 
@@ -179,17 +223,17 @@ The sign-in window needs to reach your page. `Cross-Origin-Opener-Policy: same-o
 ### Developing the SDK
 
 ```sh
-pnpm dev   # server, console, the SDK runtime in watch mode, and the playground on http://localhost:5174
+pnpm dev   # server, console, the SDK runtime in watch mode, and the playground on http://localhost:4801
 ```
 
 The playground needs a project key. Create `packages/sdk/.env.local`:
 
 ```sh
 NOOTED_PROJECT_KEY=pk_…   # public key from the console
-# NOOTED_URL=http://localhost:5173   # optional, the default
+# NOOTED_URL=http://localhost:4800   # optional, the default
 ```
 
-Add `http://localhost:5174` to the project's allowed origins, then open http://localhost:5174/ and press Enable Nooted. The playground takes `?csp=strict|nonce|missing` and `?coop=same-origin` to try the CSP and COOP cases above.
+Add `http://localhost:4801` to the project's allowed origins, then open http://localhost:4801/ and press Enable Nooted. The playground takes `?csp=strict|nonce|missing` and `?coop=same-origin` to try the CSP and COOP cases above.
 
 ```sh
 pnpm --filter @nooted/sdk test    # unit tests

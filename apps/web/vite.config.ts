@@ -5,11 +5,16 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 export default defineConfig({
   plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), react()],
   server: {
-    port: 5173,
+    host: true,
+    port: 4800,
+    strictPort: true,
     proxy: {
-      '/api': 'http://localhost:3000',
-      '/auth': 'http://localhost:3000',
-      '/sdk': 'http://localhost:3000',
+      '/api': 'http://localhost:4810',
+      '/auth': 'http://localhost:4810',
+      '/sdk': 'http://localhost:4810',
+      '/mcp': 'http://localhost:4810',
+      '/oauth': 'http://localhost:4810',
+      '/.well-known': 'http://localhost:4810',
     },
   },
 })

@@ -5,7 +5,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./frame": "./src/frame.ts",
-    "./note": "./src/note.ts"
+    "./note": "./src/note.ts",
+    "./status": "./src/status.ts",
+    "./ua": "./src/ua.ts"
   },
   "scripts": {
     "typecheck": "tsc",

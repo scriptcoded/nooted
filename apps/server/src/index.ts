@@ -7,16 +7,21 @@ import { Hono } from 'hono'
 import { createApp } from './app.ts'
 import { createOidcProvider } from './auth/oidc.ts'
 import { createFsBlobStore } from './blobs.ts'
+import { frameHeaders } from './frame-headers.ts'
 import { loadConfig } from './config.ts'
 import { migrateToLatest } from './db/migrate.ts'
 import { createKysely, openDatabase } from './db/node-sqlite-adapter.ts'
 import type { DB } from './db/schema.ts'
+import { cleanupOauth } from './oauth/cleanup.ts'
 
 const config = loadConfig()
 
 mkdirSync(config.dataDir, { recursive: true })
 const db = createKysely<DB>(openDatabase(join(config.dataDir, 'nooted.db')))
 await migrateToLatest(db)
+const runOauthCleanup = () => cleanupOauth(db).catch((error) => console.error('OAuth cleanup failed', error))
+await runOauthCleanup()
+setInterval(runOauthCleanup, 60 * 60 * 1000).unref()
 const blobs = createFsBlobStore(join(config.dataDir, 'blobs'))
 
 const oidc = createOidcProvider({
@@ -39,10 +44,10 @@ if (webDistDir) {
     throw new Error(`Web build not found: ${join(webDistDir, 'index.html')} is missing (run pnpm --filter @nooted/web build)`)
   }
   // Server-owned paths never fall back to the SPA, so unknown API calls keep their 404.
-  const serverOwned = (path: string) => ['/api', '/auth', '/sdk'].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+  const serverOwned = (path: string) => ['/api', '/auth', '/sdk', '/oauth', '/.well-known', '/mcp'].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
   const files = serveStatic({ root: webDistDir })
   const index = serveStatic({ root: webDistDir, path: 'index.html' })
-  app.get('*', (c, next) => (serverOwned(c.req.path) ? c.notFound() : next()), files, index)
+  app.get('*', frameHeaders, (c, next) => (serverOwned(c.req.path) ? c.notFound() : next()), files, index)
 }
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {

@@ -1,12 +1,12 @@
 # Local development IdP. Not for production use.
 # Sign in with admin@example.com or dev@example.com, password "password".
-issuer: http://localhost:5556/dex
+issuer: http://localhost:4856/dex
 
 storage:
   type: memory
 
 web:
-  http: 0.0.0.0:5556
+  http: 0.0.0.0:4856
 
 enablePasswordDB: true
 
@@ -15,8 +15,9 @@ staticClients:
     name: Nooted
     secret: nooted-dev-secret
     redirectURIs:
-      - http://localhost:5173/auth/callback
-      - http://localhost:3000/auth/callback
+      - http://localhost:4800/auth/callback   # pnpm dev (console)
+      - http://localhost:4810/auth/callback   # docker compose --profile app
+      - http://localhost:4820/auth/callback   # e2e
 
 staticPasswords:
   - email: admin@example.com

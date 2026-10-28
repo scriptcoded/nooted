@@ -80,3 +80,24 @@ export const feedbackItemQuery = (projectId: string, itemId: string) =>
     },
     retry: false,
   })
+
+export const oauthRequestQuery = (id: string) =>
+  queryOptions({
+    queryKey: ['oauth-request', id],
+    queryFn: async () => {
+      const res = await api.oauth.requests[':id'].$get({ param: { id } })
+      if (!res.ok) throw await toApiError(res)
+      return res.json()
+    },
+    retry: false,
+    staleTime: Infinity,
+  })
+
+export const grantsQuery = queryOptions({
+  queryKey: ['oauth-grants'],
+  queryFn: async () => {
+    const res = await api.oauth.grants.$get()
+    if (!res.ok) throw await toApiError(res)
+    return res.json()
+  },
+})

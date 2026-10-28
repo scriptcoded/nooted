@@ -7,9 +7,17 @@ import { createSession, destroySession, isSecure } from './sessions.ts'
 export const LOGIN_COOKIE = 'nooted_login'
 const LOGIN_ATTEMPT_TTL_MS = 10 * 60 * 1000
 
-export function sanitizeReturnTo(value: string | undefined): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return '/'
-  return value
+/** Same-origin path (with query and hash) or '/'. Parsed, because browsers strip tabs and newlines and treat backslashes as slashes. */
+export function sanitizeReturnTo(value: string | undefined, publicUrl: string): string {
+  // eslint-disable-next-line no-control-regex
+  if (!value || !value.startsWith('/') || /[\u0000-\u001f\u007f\\]/.test(value)) return '/'
+  try {
+    const u = new URL(value, publicUrl)
+    if (u.origin !== new URL(publicUrl).origin) return '/'
+    return u.pathname + u.search + u.hash
+  } catch {
+    return '/'
+  }
 }
 
 const random = (bytes: number) => randomBytes(bytes).toString('base64url')
@@ -21,7 +29,7 @@ export function createAuthRoutes(deps: AppDeps) {
 
   return new Hono()
     .get('/login', async (c) => {
-      const returnTo = sanitizeReturnTo(c.req.query('returnTo'))
+      const returnTo = sanitizeReturnTo(c.req.query('returnTo'), config.publicUrl)
       const attempt = {
         id: random(32),
         state: random(32),
@@ -115,7 +123,7 @@ export function createAuthRoutes(deps: AppDeps) {
 
       await createSession(c, deps, userId)
       deleteCookie(c, LOGIN_COOKIE, loginCookieOptions)
-      return c.redirect(attempt.return_to, 302)
+      return c.redirect(sanitizeReturnTo(attempt.return_to, config.publicUrl), 302)
     })
     .post('/logout', async (c) => {
       await destroySession(c, deps)

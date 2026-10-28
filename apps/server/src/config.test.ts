@@ -25,7 +25,16 @@ describe('loadConfig', () => {
       oidcClientId: 'nooted',
       oidcClientSecret: 'nooted-dev-secret',
       adminEmails: ['admin@example.com'],
+      trustProxyHops: 0,
     })
+  })
+
+  it('reads TRUST_PROXY_HOPS as a non-negative integer', () => {
+    assert.equal(loadConfig({ ...valid, TRUST_PROXY_HOPS: '2' }).trustProxyHops, 2)
+    assert.equal(loadConfig({ ...valid, TRUST_PROXY_HOPS: '' }).trustProxyHops, 0)
+    assert.throws(() => loadConfig({ ...valid, TRUST_PROXY_HOPS: '-1' }), /TRUST_PROXY_HOPS/)
+    assert.throws(() => loadConfig({ ...valid, TRUST_PROXY_HOPS: '1.5' }), /TRUST_PROXY_HOPS/)
+    assert.throws(() => loadConfig({ ...valid, TRUST_PROXY_HOPS: 'x' }), /TRUST_PROXY_HOPS/)
   })
 
   it('reads an optional WEB_DIST_DIR and rejects a blank one as unset', () => {

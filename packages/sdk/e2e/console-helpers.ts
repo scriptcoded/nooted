@@ -64,7 +64,7 @@ export function insertLegacyItem(): string {
   const id = randomUUID()
   const blobKey = `projects/${projectId}/reports/${id}.json.gz`
   const note = 'Old report: the footer link is broken'
-  const url = 'http://localhost:5174/?legacy'
+  const url = 'http://localhost:4821/?legacy'
   const blob = {
     note,
     url,

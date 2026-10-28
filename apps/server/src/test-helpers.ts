@@ -8,6 +8,7 @@ import type { Config } from './config.ts'
 import { migrateToLatest } from './db/migrate.ts'
 import { createKysely, openDatabase } from './db/node-sqlite-adapter.ts'
 import type { DB } from './db/schema.ts'
+import type { OauthHooks } from './oauth/shared.ts'
 
 export type FakeOidc = OidcProvider & { identity: OidcIdentity }
 
@@ -42,15 +43,16 @@ export const testConfig: Config = {
   oidcClientId: 'nooted',
   oidcClientSecret: 'secret',
   adminEmails: ['admin@example.com'],
+  trustProxyHops: 0,
 }
 
-export async function createTestApp(overrides: { config?: Partial<Config>; identity?: Partial<OidcIdentity> } = {}) {
+export async function createTestApp(overrides: { config?: Partial<Config>; identity?: Partial<OidcIdentity>; oauth?: OauthHooks } = {}) {
   const config: Config = { ...testConfig, ...overrides.config }
   const db = createKysely<DB>(openDatabase(':memory:'))
   await migrateToLatest(db)
   const blobs = createFsBlobStore(await mkdtemp(join(tmpdir(), 'nooted-test-blobs-')))
   const oidc = createFakeOidc(overrides.identity)
-  const app = createApp({ config, db, blobs, oidc })
+  const app = createApp({ config, db, blobs, oidc, oauth: overrides.oauth })
   return { app, db, blobs, oidc, config }
 }
 

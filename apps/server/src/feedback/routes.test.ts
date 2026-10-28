@@ -6,6 +6,7 @@ import { hc } from 'hono/client'
 import type { AppType } from '../app.ts'
 import { issueUploadToken } from '../sdk/tokens.ts'
 import { createTestApp, signIn } from '../test-helpers.ts'
+import { createFeedbackRepo } from './repo.ts'
 import { createReportStore } from './report-store.ts'
 
 const events = (n: number) => [
@@ -205,5 +206,72 @@ describe('report store cache', () => {
     assert.equal(reads, 4, 'newest still cached')
     await store.loadReport(item(ids[0]!))
     assert.equal(reads, 5, 'oldest was evicted')
+  })
+})
+
+describe('PATCH /api/projects/:id/feedback/:itemId', () => {
+  async function patchStatus(t: Awaited<ReturnType<typeof setup>>, cookie: string, path: string, body: unknown) {
+    return t.t.app.request(`/api/projects${path}`, {
+      method: 'PATCH',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it('lets a member change the status, reflected in the detail, its ETag and the list', async () => {
+    const s = await setup()
+    const id = await s.upload(payload())
+    const before = await s.get(`/p1/feedback/${id}`)
+    const etag = before.headers.get('etag')
+    const res = await patchStatus(s, s.member.cookie, `/p1/feedback/${id}`, { status: 'in_progress' })
+    assert.equal(res.status, 200)
+    assert.deepEqual(await res.json(), { status: 'in_progress' })
+    const after = await s.get(`/p1/feedback/${id}`, undefined, { 'if-none-match': etag! })
+    assert.equal(after.status, 200)
+    assert.notEqual(after.headers.get('etag'), etag)
+    assert.equal(((await after.json()) as { status: string }).status, 'in_progress')
+    const list = (await (await s.get('/p1/feedback')).json()) as { items: { status: string }[] }
+    assert.equal(list.items[0]!.status, 'in_progress')
+  })
+
+  it('rejects an unknown status with 400 and leaves it unchanged', async () => {
+    const s = await setup()
+    const id = await s.upload(payload())
+    for (const body of [{ status: 'archived' }, {}, { status: 3 }]) {
+      assert.equal((await patchStatus(s, s.member.cookie, `/p1/feedback/${id}`, body)).status, 400)
+    }
+    const row = await s.t.db.selectFrom('feedback_items').select('status').where('id', '=', id).executeTakeFirstOrThrow()
+    assert.equal(row.status, 'new')
+  })
+
+  it('answers 404 for a non-member, an unknown item and an item of another project', async () => {
+    const s = await setup()
+    const id = await s.upload(payload())
+    const other = await signIn(s.t, { email: 'other@example.com', name: 'Other' })
+    assert.equal((await patchStatus(s, other.cookie, `/p1/feedback/${id}`, { status: 'done' })).status, 404)
+    assert.equal((await patchStatus(s, s.member.cookie, '/p1/feedback/nope', { status: 'done' })).status, 404)
+    assert.equal((await patchStatus(s, s.member.cookie, `/p2/feedback/${id}`, { status: 'done' })).status, 404)
+    const row = await s.t.db.selectFrom('feedback_items').select('status').where('id', '=', id).executeTakeFirstOrThrow()
+    assert.equal(row.status, 'new')
+  })
+
+  it('is visible to the typed client', async () => {
+    const s = await setup()
+    const client = hc<AppType>('http://localhost', { fetch: s.t.app.request.bind(s.t.app) as typeof fetch })
+    assert.equal(typeof client.api.projects[':id'].feedback[':itemId'].$patch, 'function')
+  })
+})
+
+describe('feedback repo setStatus', () => {
+  it('validates the status and reports unknown items', async () => {
+    const s = await setup()
+    const id = await s.upload(payload())
+    const repo = createFeedbackRepo(s.t.db)
+    assert.equal(await repo.setStatus('p1', id, 'done'), true)
+    assert.equal(await repo.setStatus('p1', 'nope', 'done'), false)
+    assert.equal(await repo.setStatus('p2', id, 'done'), false)
+    await assert.rejects(repo.setStatus('p1', id, 'archived' as never), /Invalid feedback status/)
+    const row = await s.t.db.selectFrom('feedback_items').select('status').where('id', '=', id).executeTakeFirstOrThrow()
+    assert.equal(row.status, 'done')
   })
 })

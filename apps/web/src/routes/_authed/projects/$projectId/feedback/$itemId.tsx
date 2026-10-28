@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Box, Chip, Link, Paper, Skeleton, Snackbar, Stack, Tooltip, Typography } from '@mui/material'
+import { Alert, Box, Link, Paper, Skeleton, Snackbar, Stack, Tooltip, Typography } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { ApiError, feedbackItemQuery } from '../../../../../queries.ts'
-import { absoluteTime, isHttpUrl, pageLabel, relativeTime, statusLabel, summarizeUserAgent } from '../../../../../format.ts'
+import { absoluteTime, isHttpUrl, pageLabel, relativeTime } from '../../../../../format.ts'
+import { summarizeUserAgent } from '@nooted/shared/ua'
+import { StatusSelect } from '../../../../../components/StatusSelect.tsx'
 import { MuiRouterLink, NoteText } from '../../../../../components/NoteText.tsx'
 import { CaptureCard } from '../../../../../components/CaptureCard.tsx'
 
@@ -98,10 +100,10 @@ function FeedbackItemPage() {
             </Stack>
           )}
         </Stack>
-        <Paper variant="outlined" component="aside" data-testid="feedback-meta" sx={{ p: 2.5, position: { md: 'sticky' }, top: { md: 16 } }}>
+        <Paper variant="outlined" component="aside" data-testid="feedback-meta" sx={{ p: 2.5, position: { md: 'sticky' }, top: { md: 16 }, order: { xs: -1, md: 0 } }}>
           <Stack spacing={2}>
             <Field label="Status">
-              <Chip label={statusLabel(data.status)} size="small" color={data.status === 'new' ? 'primary' : 'default'} sx={{ alignSelf: 'flex-start' }} />
+              <StatusSelect projectId={projectId} itemId={itemId} status={data.status} />
             </Field>
             <Field label="Reporter">
               <Typography variant="body2">{data.reporter.name || data.reporter.email}</Typography>

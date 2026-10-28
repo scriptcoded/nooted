@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./frame": "./src/frame.ts",
+    "./note": "./src/note.ts"
   },
   "scripts": {
     "typecheck": "tsc",

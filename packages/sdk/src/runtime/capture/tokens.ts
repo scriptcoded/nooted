@@ -46,19 +46,6 @@ export function stripToken(note: string, n: number): string {
 }
 
 /**
- * Tokens in the note that no capture has, such as a hand-typed "[2]", in order of first appearance.
- * The server rejects such reports for good, so the window must not send them.
- */
-export function unknownTokens(note: string, existing: readonly number[]): number[] {
-  const unknown: number[] = []
-  for (const match of note.matchAll(/\[(\d+)\]/g)) {
-    const n = Number(match[1])
-    if (!existing.includes(n) && !unknown.includes(n)) unknown.push(n)
-  }
-  return unknown
-}
-
-/**
  * The number for a new capture: one above the highest ever issued in this report (so numbers aren't
  * reused while it fits 1..MAX_CAPTURES), else the smallest free one. A reused number can't collide with a
  * leftover token, because removing a capture strips its tokens.

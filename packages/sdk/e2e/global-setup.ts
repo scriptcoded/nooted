@@ -16,12 +16,13 @@ import {
   PROJECT_FILE,
   SDK_DIR,
   SERVER_DIR,
+  WEB_DIR,
   SERVER_PORT,
   STORAGE_STATE,
 } from './env.ts'
 
 // Starts everything the tests need and returns the teardown:
-//   1. builds the SDK runtime, so tests run against the current dist/nooted.js
+//   1. builds the SDK runtime, so tests run against the current dist/nooted.js, and the console (apps/web)
 //   2. starts the Nooted server on a temp DATA_DIR
 //   3. signs in as admin through Dex, creates a project allowing the playground origin
 //   4. starts the playground with that project's key in its environment
@@ -101,6 +102,9 @@ export default async function globalSetup(_config: FullConfig): Promise<() => Pr
       execFileSync('pnpm', ['exec', 'vite', 'build', '-c', config], { cwd: SDK_DIR, stdio: 'pipe' })
     }
 
+    // The console is served by the same server, at the server origin (no tsc: `pnpm typecheck` covers that).
+    execFileSync('pnpm', ['exec', 'vite', 'build'], { cwd: WEB_DIR, stdio: 'pipe' })
+
     dataDir = mkdtempSync(join(tmpdir(), 'nooted-e2e-'))
     const server = start('server', ['src/index.ts'], SERVER_DIR, {
       PORT: String(SERVER_PORT),
@@ -111,7 +115,7 @@ export default async function globalSetup(_config: FullConfig): Promise<() => Pr
       OIDC_CLIENT_SECRET: 'nooted-dev-secret',
       NOOTED_ADMIN_EMAILS: ADMIN_EMAIL,
       SDK_DIST_DIR: join(SDK_DIR, 'dist'),
-      WEB_DIST_DIR: '',
+      WEB_DIST_DIR: join(WEB_DIR, 'dist'),
     })
     await waitForHttp(`${NOOTED_URL}/sdk/v1/nooted.js`, 'The Nooted server', server)
 
@@ -125,7 +129,7 @@ export default async function globalSetup(_config: FullConfig): Promise<() => Pr
     })
     await waitForHttp(PLAYGROUND_URL, 'The playground', playground)
 
-    writeFileSync(PROJECT_FILE, JSON.stringify({ id: projectId, key: projectKey }, null, 2))
+    writeFileSync(PROJECT_FILE, JSON.stringify({ id: projectId, key: projectKey, dataDir }, null, 2))
   } catch (error) {
     await stopAll()
     throw error

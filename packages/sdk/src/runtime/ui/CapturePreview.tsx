@@ -9,7 +9,7 @@ import { adoptCss } from './adopt-css.ts'
 import { endsOn, formatClock, recordingMs } from './capture-info.ts'
 import { PauseIcon, PlaceholderTile, PlayIcon } from './icons.tsx'
 import { isStyleViolation, watchViolations } from './style-violations.ts'
-import { coverTopLayout, fitLayout, frameLayout, THUMB_H, THUMB_W, type Layout } from './thumb-frame.ts'
+import { coverTopLayout, fitLayout, frameLayout, THUMB_H, THUMB_W, type Layout } from '@nooted/shared/frame'
 
 export interface CapturePreviewProps {
   capture: Capture

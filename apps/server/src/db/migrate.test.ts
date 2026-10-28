@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, it } from 'node:test'
 import type { Kysely } from 'kysely'
+import { Migrator } from 'kysely/migration'
 import { migrateToLatest } from './migrate.ts'
+import * as m001 from './migrations/001_init.ts'
 import { createKysely, openDatabase } from './node-sqlite-adapter.ts'
 import type { DB } from './schema.ts'
 
@@ -19,9 +21,9 @@ describe('migrations', () => {
   it('applies once and is a no-op the second time', async () => {
     await migrateToLatest(db)
     const executed = await db.selectFrom('kysely_migration' as never).selectAll().execute()
-    assert.equal(executed.length, 1)
+    assert.equal(executed.length, 2)
     await migrateToLatest(db)
-    assert.equal((await db.selectFrom('kysely_migration' as never).selectAll().execute()).length, 1)
+    assert.equal((await db.selectFrom('kysely_migration' as never).selectAll().execute()).length, 2)
   })
 
   it('creates tables that match the DB types and cascades deletes', async () => {
@@ -94,5 +96,26 @@ describe('migrations', () => {
     await db.deleteFrom('users').execute()
     const member = await db.selectFrom('project_members').selectAll().executeTakeFirstOrThrow()
     assert.equal(member.user_id, null)
+  })
+
+  it('adds capture_count with 0 for rows that existed before 002', async () => {
+    const first = new Migrator({ db, provider: { getMigrations: async () => ({ '001_init': m001 }) } })
+    const { error } = await first.migrateToLatest()
+    assert.equal(error, undefined)
+    const now = Date.now()
+    await db
+      .insertInto('users')
+      .values({ id: 'u1', issuer: 'i', subject: 's', email: 'a@example.com', email_verified: 1, name: 'A', created_at: now })
+      .execute()
+    await db.insertInto('projects').values({ id: 'p1', name: 'P', public_key: 'pk_1', retention_days: 90, created_at: now }).execute()
+    await db
+      .insertInto('feedback_items')
+      .values({
+        id: 'f1', project_id: 'p1', client_report_id: 'c1', reporter_id: 'u1', note: 'n', url: 'https://x',
+        captured_at: now, release: null, blob_key: 'k', created_at: now,
+      })
+      .execute()
+    await migrateToLatest(db)
+    assert.equal((await db.selectFrom('feedback_items').selectAll().executeTakeFirstOrThrow()).capture_count, 0)
   })
 })

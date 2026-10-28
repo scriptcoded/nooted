@@ -13,6 +13,7 @@ export const OIDC_ISSUER = process.env.E2E_OIDC_ISSUER ?? 'http://localhost:5556
 
 const dir = (relative: string) => fileURLToPath(new URL(relative, import.meta.url))
 export const SDK_DIR = dir('..')
+export const WEB_DIR = dir('../../../apps/web')
 export const SERVER_DIR = dir('../../../apps/server')
 /** Generated state (gitignored): the admin's storageState and the project's id and key. */
 export const AUTH_DIR = dir('./.auth')

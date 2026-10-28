@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { insertToken, nextNumber, stripToken, unknownTokens } from './tokens.ts'
+import { insertToken, nextNumber, stripToken } from './tokens.ts'
 
 const at = (n: number) => ({ start: n, end: n })
 
@@ -57,10 +57,4 @@ test('numbers: monotonic, then the smallest free one after 10', () => {
   assert.equal(nextNumber([], 2), 3) // the highest was removed: not reused
   assert.equal(nextNumber([1, 2, 3, 4, 5, 6, 7, 8, 9], 10), 10)
   assert.equal(nextNumber([1, 2, 3, 5, 6, 7, 8, 9, 10], 10), 4)
-})
-
-test('unknown tokens are the [n] in the note with no capture, once each, in order', () => {
-  assert.deepEqual(unknownTokens('see [2] and [1], then [2] again and [3]', [1]), [2, 3])
-  assert.deepEqual(unknownTokens('all known [1] [10]', [1, 10]), [])
-  assert.deepEqual(unknownTokens('not tokens: [a] [ 1 ] []', []), [])
 })

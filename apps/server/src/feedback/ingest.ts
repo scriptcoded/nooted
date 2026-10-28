@@ -74,6 +74,7 @@ export async function ingestReport(
         captured_at: report.capturedAt,
         release: report.release ?? null,
         blob_key: blobKey,
+        capture_count: report.captures.length,
         created_at: Date.now(),
       })
       .execute()

@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
-import { request as pwRequest, type Page, type Route } from '@playwright/test'
+import { request as pwRequest, type Browser, type BrowserContext, type Page, type Route } from '@playwright/test'
 import type { ReportPayload } from '@nooted/shared'
 import { NOOTED_URL, PLAYGROUND_URL, PROJECT_FILE, STORAGE_STATE } from './env.ts'
 
 /** The project global setup created: its id and public key. */
-export function readProject(): { id: string; key: string } {
+export function readProject(): { id: string; key: string; dataDir: string } {
   return JSON.parse(readFileSync(PROJECT_FILE, 'utf8'))
 }
 
@@ -201,3 +201,16 @@ export async function interceptReports(
 
 export const fulfillStatus = (route: Route, status: number) =>
   route.fulfill({ status, headers: CORS_HEADERS, contentType: 'application/json', body: JSON.stringify({ error: 'test' }) })
+
+/** A fresh browser context signed in to the console as `email` through Dex (not a member of the project unless added). */
+export async function consoleContextAs(browser: Browser, email: string, password = 'password'): Promise<BrowserContext> {
+  const context = await browser.newContext({ baseURL: NOOTED_URL })
+  const page = await context.newPage()
+  await page.goto(`${NOOTED_URL}/auth/login`)
+  await page.locator('input[name="login"]').fill(email)
+  await page.locator('input[name="password"]').fill(password)
+  await page.locator('button[type="submit"]').click()
+  await page.waitForURL((url) => url.origin === NOOTED_URL && !url.pathname.startsWith('/auth/'))
+  await page.close()
+  return context
+}

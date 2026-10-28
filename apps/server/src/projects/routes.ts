@@ -4,6 +4,7 @@ import type { AppDeps } from '../app.ts'
 import { requireUser } from '../auth/middleware.ts'
 import type { AuthEnv, AuthUser } from '../auth/middleware.ts'
 import { validate } from '../validation.ts'
+import { createFeedbackRoutes } from '../feedback/routes.ts'
 import { createFeedbackRepo } from '../feedback/repo.ts'
 import { normalizeOrigin } from './origin.ts'
 import { createProjectRepo } from './repo.ts'
@@ -29,6 +30,7 @@ export function createProjectRoutes(deps: AppDeps) {
 
   return new Hono<AuthEnv>()
     .use(requireUser(deps))
+    .route('/', createFeedbackRoutes(deps))
     .post('/', validate('json', createBody), async (c) => {
       if (!c.var.user.isAdmin) return c.json({ error: 'forbidden' as const }, 403)
       return c.json(await repo.create(c.req.valid('json').name), 201)

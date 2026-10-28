@@ -19,10 +19,10 @@ E2E_VERBOSE=1 pnpm --filter @nooted/sdk e2e      # also print server and playgro
 
 ## What happens
 
-`global-setup.ts` builds the runtime (`dist/nooted.js`), starts `apps/server` on a temp `DATA_DIR`, signs
+`global-setup.ts` builds the runtime (`dist/nooted.js`) and the console (`apps/web/dist`), starts `apps/server` on a temp `DATA_DIR` that also serves the console on the server origin, signs
 in as `admin@example.com` through Dex, creates a project allowing `http://localhost:5174`, then starts the
 playground with that project's key in `NOOTED_PROJECT_KEY`. Both processes and the temp directory are
-removed afterwards. The admin session (`.auth/admin.json`) and the project id and key (`.auth/project.json`)
+removed afterwards. The admin session (`.auth/admin.json`) and the project id and key (`.auth/project.json`, which also holds the temp `dataDir`)
 are written for the tests and are gitignored. Your `.env.local` is never touched.
 
 The playground picks a policy per request from the page URL: `?csp=strict|nonce|missing` and

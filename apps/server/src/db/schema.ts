@@ -68,6 +68,7 @@ export interface FeedbackItemsTable {
   status: Generated<string>
   release: string | null
   blob_key: string
+  capture_count: Generated<number>
   created_at: number
 }
 

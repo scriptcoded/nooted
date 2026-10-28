@@ -160,6 +160,12 @@ importers:
       '@nooted/server':
         specifier: workspace:*
         version: link:../server
+      '@nooted/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@rrweb/replay':
+        specifier: 2.2.0
+        version: 2.2.0
       '@tanstack/react-query':
         specifier: ^5.104.5
         version: 5.104.5(@types/react@19.3.0)(react@19.3.1)

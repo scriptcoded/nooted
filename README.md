@@ -58,6 +58,16 @@ Set in `apps/server/.env` for `pnpm dev`, or in `docker-compose.yml` for the con
 
 `NODE_ENV` is not a Nooted setting, but the server reads it for the `WEB_DIST_DIR` default above.
 
+## Console
+
+Project members review reports in the console (`/projects/<id>`). Captures are visible to project members only: the item and capture endpoints answer `404` to everyone else, and the console shows nothing of them.
+
+- **Feedback list.** One row per report with its note, page, reporter, status and a Captures column with the number of captures (a dash for reports sent before captures existed). Note references such as `[1]` are drawn as small chips. The list never loads capture data.
+- **Item page.** Click a row. The note comes first with its `[n]` chips; click one to scroll to that capture and highlight it. Next to it (below it on narrow screens) are the reporter, page, time, device and viewport, and release.
+- **Captures.** Each capture is a card with a thumbnail. A Point capture lists the elements the reporter pointed at (name, role, text) and their CSS selector with a button to copy it. The thumbnail frames the selection with the marks drawn on it; a capture without marks is the whole page. A recording shows its length and a play glyph.
+- **Large view.** Click a thumbnail to open it larger. Point captures can toggle between the framed selection and the whole page. Recordings play inside the dialog (Play, Pause).
+- **Older reports.** Reports sent before captures existed show a notice instead of captures.
+
 ## SDK
 
 The `@nooted/sdk` package adds the feedback button to your site. It is not published to npm yet, so depend on it through the workspace (`"@nooted/sdk": "workspace:*"`).

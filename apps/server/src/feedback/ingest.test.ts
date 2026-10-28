@@ -92,6 +92,16 @@ describe('POST /api/sdk/reports', () => {
     assert.ok(blob && Buffer.compare(Buffer.from(blob), body) === 0)
   })
 
+  it('stores the capture count and lists it', async () => {
+    const { t, member, tokenFor, upload, rows } = await setup()
+    const captures = [capture(1), capture(2)]
+    assert.equal((await upload(await tokenFor('p1'), gz(payload({ note: 'see [1] and [2]', captures })))).status, 201)
+    assert.equal((await rows())[0]?.capture_count, 2)
+    const res = await t.app.request('/api/projects/p1/feedback', { headers: { cookie: member.cookie } })
+    const { items } = (await res.json()) as { items: { captureCount: number }[] }
+    assert.equal(items[0]?.captureCount, 2)
+  })
+
   it('rejects a missing token with 401', async () => {
     const { upload, rows } = await setup()
     assert.equal((await upload(null, gz(payload()))).status, 401)
@@ -289,10 +299,11 @@ describe('GET /api/projects/:id/feedback', () => {
     assert.deepEqual(items.map((i) => i.note), ['third', 'second', 'first'])
     assert.deepEqual(items.map((i) => i.id), ids.toReversed())
     assert.equal(items[0]?.status, 'new')
+    assert.equal(items[0]?.captureCount, 0)
     assert.equal(items[0]?.release, 'v1.2.3')
     assert.equal(items[0]?.capturedAt, 1_700_000_000_000)
     assert.deepEqual(items[0]?.reporter, { id: (items[0]?.reporter as { id: string }).id, name: 'Dev', email: 'dev@example.com' })
-    assert.deepEqual(Object.keys(items[0] ?? {}).sort(), ['capturedAt', 'createdAt', 'id', 'note', 'release', 'reporter', 'status', 'url'])
+    assert.deepEqual(Object.keys(items[0] ?? {}).sort(), ['captureCount', 'capturedAt', 'createdAt', 'id', 'note', 'release', 'reporter', 'status', 'url'])
   })
 
   it('returns 404 for a non-member and 401 without a session', async () => {

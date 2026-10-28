@@ -69,3 +69,14 @@ export const feedbackQuery = (projectId: string) =>
       return res.json()
     },
   })
+
+export const feedbackItemQuery = (projectId: string, itemId: string) =>
+  queryOptions({
+    queryKey: ['feedback', projectId, itemId],
+    queryFn: async () => {
+      const res = await api.projects[':id'].feedback[':itemId'].$get({ param: { id: projectId, itemId } })
+      if (!res.ok) throw await toApiError(res)
+      return res.json()
+    },
+    retry: false,
+  })

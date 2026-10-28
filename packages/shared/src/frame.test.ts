@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { coverTopLayout, fitLayout, frameLayout, type Layout } from './thumb-frame.ts'
+import { coverTopLayout, fitLayout, frameLayout, type Layout } from './frame.ts'
 
 const at = (l: Layout, x: number, y: number) => [l.tx + l.scale * x, l.ty + l.scale * y]
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-6, `${a} != ${b}`)

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { debugNooted, enableNooted, waitForRuntime } from './helpers.ts'
 
-const fab = (page: import('@playwright/test').Page) => page.getByRole('button', { name: 'Report a problem' })
+const fab = (page: import('@playwright/test').Page) => page.getByRole('button', { name: 'Request a change' })
 
 test.beforeEach(async ({ page }) => {
   await enableNooted(page)
@@ -14,12 +14,12 @@ test('hostile page CSS does not hide or break the floating button', async ({ pag
   await page.addStyleTag({
     content: 'button { display: none !important } div { visibility: hidden !important } * { font-size: 40px !important }',
   })
-  const button = page.locator('#nooted-host').getByRole('button', { name: 'Report a problem' })
+  const button = page.locator('#nooted-host').getByRole('button', { name: 'Request a change' })
   await expect(button).toBeVisible()
   const box = await button.boundingBox()
   expect(box!.width).toBeLessThan(80)
   await button.click()
-  await expect(page.getByRole('dialog', { name: 'Report a problem' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Request a change' })).toBeVisible()
   await page.getByRole('button', { name: 'Cancel' }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })

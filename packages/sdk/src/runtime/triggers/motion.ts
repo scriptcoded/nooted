@@ -29,7 +29,7 @@ export function attachMotion(threshold: () => number | undefined): void {
   detach = () => window.removeEventListener('devicemotion', onMotion)
 }
 
-/** Stops listening ("Turn off"). A later attachMotion() starts again. */
+/** Stops listening (`nooted.disable()`). A later attachMotion() starts again. */
 export function stopMotion(): void {
   detach?.()
   detach = undefined

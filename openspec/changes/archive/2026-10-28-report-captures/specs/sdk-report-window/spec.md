@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Note form
-The form SHALL have a multiline note field (required, at most 10,000 characters), "Add capture", the list of captures, Send and Cancel. "Add capture" SHALL insert a token `[n]` at the cursor, where n is the new capture's number, once the capture is taken. Removing a capture SHALL remove its tokens. Send SHALL be disabled while the note is empty. Cancel SHALL close the window and discard the note and captures.
+The report window SHALL be titled "Request a change" and have a multiline note field labelled "What should change?" (required, at most 10,000 characters), the "Point" and "Record" capture actions, the list of captures, Send and Cancel. Finishing a capture SHALL insert a token `[n]` at the cursor position the note had when the capture started. Removing a capture SHALL remove its tokens. Send SHALL be disabled while the note is empty. Cancel SHALL close the window and discard the note and captures.
 
 #### Scenario: Empty note
 - **WHEN** the note is empty or whitespace
@@ -14,7 +14,7 @@ The form SHALL have a multiline note field (required, at most 10,000 characters)
 - **THEN** the window closes and no report is sent or queued
 
 #### Scenario: Inline capture
-- **WHEN** the user types "If I click ", taps "Add capture", marks a button, taps Done and types " I want a confirmation"
+- **WHEN** the user types "If I click ", taps "Point", selects a button, taps Done and types "I want a confirmation"
 - **THEN** the note reads "If I click [1] I want a confirmation" and capture 1 is listed below it
 
 #### Scenario: Remove capture
@@ -22,8 +22,12 @@ The form SHALL have a multiline note field (required, at most 10,000 characters)
 - **THEN** the capture is gone, "[1]" is removed from the note, and later captures keep their numbers
 
 #### Scenario: Note kept during capture
-- **WHEN** the user enters capture mode and returns with Done or Cancel
+- **WHEN** the user starts a capture and returns with Done, Stop or Cancel
 - **THEN** the note text is unchanged apart from any inserted token
+
+#### Scenario: Unknown token
+- **WHEN** the note contains "[2]" and the report has no capture 2
+- **THEN** Send is disabled and the window explains that [2] has no capture
 
 ### Requirement: Send outcome
 After Send, the window SHALL show a short confirmation and close when the report was uploaded, or say the report was saved and will be sent later when it was queued. If the token was rejected, it SHALL switch to the sign-in state, keeping the note and captures.
@@ -40,9 +44,8 @@ After Send, the window SHALL show a short confirmation and close when the report
 - **WHEN** the server answers 401
 - **THEN** the window shows the sign-in button, and after signing in, Send uploads the same note and captures
 
-### Requirement: Turn off
-The report window SHALL offer "Turn off Nooted on this device", which clears the enabled flag, stops any capture in progress, and removes Nooted's UI from the page.
+## REMOVED Requirements
 
-#### Scenario: Turn off
-- **WHEN** the user chooses "Turn off Nooted on this device"
-- **THEN** the floating button disappears, nothing is recorded, and later page loads do not load the SDK
+### Requirement: Turn off
+**Reason**: Nothing in the UI told users how to turn Nooted back on, so the action was a trap.
+**Migration**: The host app turns Nooted off with `nooted.disable()` ("Enabling from the app" in `sdk-loader`).

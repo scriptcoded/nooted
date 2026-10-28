@@ -17,37 +17,6 @@ The system SHALL accept reports at `POST /api/sdk/reports`, authorized by an upl
 - **WHEN** a report is uploaded without an `Authorization: Bearer` token
 - **THEN** the response is 401
 
-### Requirement: Report payload
-A report SHALL contain a client-generated report id (UUID), a note (1 to 10,000 characters), the page URL, the capture timestamp (the shake time), the user agent, viewport width, height and device pixel ratio, a list of rrweb events, and optionally a release identifier. The event list SHALL be non-empty unless the report marks its recording as omitted. A report MAY carry a focus range (start and end timestamps) and MAY mark its recording as omitted. The system SHALL reject invalid payloads with 400 and a description of the problem.
-
-#### Scenario: Empty note
-- **WHEN** a report has an empty note
-- **THEN** the response is 400 and nothing is stored
-
-#### Scenario: No events
-- **WHEN** a report has an empty event list and does not mark its recording as omitted
-- **THEN** the response is 400
-
-#### Scenario: Omitted recording without events
-- **WHEN** a report marks its recording as omitted and has an empty event list
-- **THEN** it is accepted and a feedback item is created
-
-#### Scenario: Omitted recording with screen data
-- **WHEN** a report marks its recording as omitted but its events contain anything other than captured error events
-- **THEN** the response is 400 and nothing is stored
-
-#### Scenario: Valid focus
-- **WHEN** a report includes a focus whose start is before its end and both lie within the time span of its events
-- **THEN** it is accepted and the focus is kept in the stored raw payload
-
-#### Scenario: Invalid focus
-- **WHEN** a report includes a focus whose start is not before its end, or that lies outside the time span of its events
-- **THEN** the response is 400
-
-#### Scenario: Focus without recording
-- **WHEN** a report marks its recording as omitted and includes a focus
-- **THEN** the response is 400
-
 ### Requirement: Idempotent retries
 The system SHALL treat a report whose client report id was already accepted in the same project as a retry. It SHALL return the existing item id instead of creating a duplicate.
 
@@ -90,3 +59,41 @@ Project members SHALL be able to list a project's feedback items, newest first, 
 #### Scenario: Non-member
 - **WHEN** a non-member requests a project's feedback list
 - **THEN** the response is 404
+
+### Requirement: Report contents
+A report SHALL contain a client-generated report id (UUID), a note (1 to 10,000 characters), the page URL, the report time, the user agent, viewport width, height and device pixel ratio, a list of 0 to 10 captures, and optionally a release identifier. The system SHALL reject invalid payloads with 400 and a description of the problem.
+
+#### Scenario: Empty note
+- **WHEN** a report has an empty note
+- **THEN** the response is 400 and nothing is stored
+
+#### Scenario: No captures
+- **WHEN** a report has a note and an empty capture list
+- **THEN** it is accepted and a feedback item is created
+
+#### Scenario: Too many captures
+- **WHEN** a report has 11 captures
+- **THEN** the response is 400
+
+#### Scenario: Old report format
+- **WHEN** a report carries a top-level `events` list instead of captures
+- **THEN** the response is 400
+
+### Requirement: Capture validation
+Each capture SHALL have a number from 1 to 10 that is unique in the report, a URL, a capture time, the viewport size, the scroll position, rrweb events that include a full snapshot, and 0 to 20 marked-element descriptions. Every `[n]` token in the note SHALL refer to a capture in the report. The system SHALL reject reports that break these rules with 400.
+
+#### Scenario: Token without capture
+- **WHEN** the note contains "[3]" and the report has captures 1 and 2
+- **THEN** the response is 400
+
+#### Scenario: Duplicate capture number
+- **WHEN** two captures in a report both have number 1
+- **THEN** the response is 400
+
+#### Scenario: Capture without snapshot
+- **WHEN** a capture's events contain no full snapshot
+- **THEN** the response is 400
+
+#### Scenario: Unreferenced capture
+- **WHEN** a report has captures 1 and 2 and the note only mentions "[1]"
+- **THEN** it is accepted

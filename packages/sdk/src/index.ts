@@ -1,7 +1,7 @@
 import { loaderCode } from './loader/code.generated.ts'
 import type { ApiMethod, LoaderConfig } from './loader/types.ts'
 
-export type { LoaderConfig, NootedStub, EarlyError } from './loader/types.ts'
+export type { LoaderConfig, NootedStub } from './loader/types.ts'
 
 export interface LoaderOptions {
   projectKey: string

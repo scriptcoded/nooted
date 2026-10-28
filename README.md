@@ -1,6 +1,6 @@
 # Nooted
 
-Nooted collects in-app feedback from your users. A small SDK on your site captures a note, the page URL and a session replay of the last few moments, and uploads it to Nooted. Project members review the reports in a web console, where each one becomes a feedback item.
+Nooted collects in-app feedback from your users. A small SDK on your site lets users write a change request, point at the elements on the page they mean (optionally with a short demo clip), and uploads it to Nooted. Project members review the reports in a web console, where each one becomes a feedback item.
 
 ## Requirements
 
@@ -103,13 +103,13 @@ nooted.disable()  // turn Nooted off on this device
 - `init({ release, button })` enables Nooted on this device, loads the SDK and shows the floating button (`button: false` hides it). Call it from the app, for example only for admins. Calls before the SDK has loaded are queued.
 - `open()` opens the report window, the same as the other triggers.
 - `signOut()` belongs in your app's logout. The next report asks the user to sign in again.
-- `disable()` clears the local flag and stops recording on this device.
+- `disable()` clears the local flag, stops any capture in progress and removes Nooted's UI from the page.
 
 ### Enabling on a device
 
-Nooted only runs on devices where it is enabled. Enable it by visiting any page with `#nooted`, for example `https://shop.example.com/cart#nooted`. The hash is removed from the URL. Use `#nooted-off` to disable it again, or "Turn off Nooted on this device" in the report window.
+Nooted only runs on devices where it is enabled. Only your app enables it: call `nooted.init()` (for example for signed-in staff, or behind a feature flag) and Nooted stays on for that device across reloads. Call `nooted.disable()` to turn it off again. Nothing in the URL or the report window changes this.
 
-Enabling only turns on local recording. Nothing is uploaded until a user writes a note and sends a report.
+Enabling only shows the floating button and turns on the triggers. Nooted records nothing in the background: nothing is recorded until a user starts a capture, and nothing is uploaded until a user writes a note and sends a report.
 
 ### Triggers
 
@@ -120,18 +120,26 @@ Enabling only turns on local recording. Nothing is uploaded until a user writes 
 
 ### Report window
 
-Tap **Review recording** in the report window to open the review view, titled "Highlight what matters". It replays the captured recording exactly as it will be sent: masked fields show as `*`, and blocked elements show as empty boxes. The replay player is loaded from the Nooted server (`/sdk/v1/replay.js`) only when the review view is opened. Using the rest of the form never loads it.
+The floating button is named **Request a change**. It opens a window with a note field, "What should change?". Describe the change in your own words, and add captures to show what you mean:
 
-- **Highlight:** a timeline with two handles marks the part that matters. Captured errors are marked on it. Drag the handles, or use the arrow keys, to pick a range, and use **Reset** to clear it. **Done** (or Escape) goes back to the form, which summarizes the choice as "Whole recording" or "Highlighted 0:12–0:20". The highlight is metadata: the full recording is still sent. Leave the handles at the ends and no highlight is sent.
-- **Include recording:** on by default for every report. Turn it off to send no screen recording. Captured errors, the page address, device information and the note are still sent.
+- **Point** hides the window and shows a bar. Tap or click the parts of the page you mean; tap a selected part again to deselect it. The bar counts them ("2 selected"). While pointing, taps and clicks don't reach the app, so buttons and links don't react. Scrolling still works. Choose **Done** to add the capture, or **Cancel** (or press Escape) to discard it. Choosing Done with nothing selected captures the whole page.
+- **Record** starts recording at once and hides the window. Use the page normally, for example to open a menu. Choose **Stop** to add the recording (it stops by itself after 60 seconds; the timer turns amber in the last 10). **Cancel** or Escape discards it.
+
+Each capture puts a token such as `[1]` at your cursor in the note, so you can say "make [1] bigger". You can also type tokens by hand, but a note that mentions a capture that doesn't exist can't be sent.
+
+Captures appear as rows with a thumbnail, "Pointed at" plus the selected elements' names (or "Whole page"), or "Recording" with its length and the page it ends on. Select a row to see the capture large: point captures zoom in on what you selected (**Show whole page** toggles), and recordings can be played back. The **×** on a row removes the capture and its tokens. A report holds up to 10 captures. Errors are recorded only while a recording runs.
+
+**Known limitation:** some apps react to `pointerdown` or `touchstart` before Nooted can intercept them, so pointing at one of their elements may still trigger it. Use **Record** for those, or point at a nearby element instead.
 
 ### Privacy
 
-The recording masks every input, textarea and select value by default. Password fields are always masked. Add a `data-nooted` attribute to change this per element:
+Captures mask every input, textarea and select value by default. Password fields are always masked. Add a `data-nooted` attribute to change this per element:
 
 - `data-nooted="show"` records the values inside the element (passwords stay masked).
 - `data-nooted="block"` records an empty placeholder of the same size instead of the element's contents.
 - `data-nooted="mask"` replaces the text of the element with `*`.
+
+These rules apply to captures and demo clips alike. The description of a marked element never includes masked or blocked text, or input values.
 
 ### Sites with a CSP
 
@@ -152,7 +160,7 @@ Nooted loads its SDK from the Nooted server, and uploads reports to it. Allow th
 
 Add these to the directives your site already has. The SDK's own styles are constructed stylesheets, which a CSP does not restrict. Very old browsers without `adoptedStyleSheets` fall back to a `<style>` element, which needs `style-src 'unsafe-inline'`.
 
-The Preview loads `replay.js` from the Nooted origin with the same nonce and `script-src` entries as the SDK, so nothing extra is needed there. It replays the recorded styles inline, so under a `style-src` without `'unsafe-inline'` the preview may look unstyled. The window says so, and sending still works.
+The replay player (`/sdk/v1/replay.js`) loads from the Nooted origin the first time a capture is added, not on page load. It uses the same nonce and `script-src` entries as the SDK, so nothing extra is needed there. It replays the recorded styles inline, so under a `style-src` without `'unsafe-inline'` capture previews may look unstyled. The window says so, and sending still works.
 
 If the SDK is blocked, the console shows one `[nooted] Could not load …` warning with the bundle URL. The app keeps working.
 
@@ -171,7 +179,7 @@ NOOTED_PROJECT_KEY=pk_…   # public key from the console
 # NOOTED_URL=http://localhost:5173   # optional, the default
 ```
 
-Add `http://localhost:5174` to the project's allowed origins, then open http://localhost:5174/#nooted. The playground takes `?csp=strict|nonce|missing` and `?coop=same-origin` to try the CSP and COOP cases above.
+Add `http://localhost:5174` to the project's allowed origins, then open http://localhost:5174/ and press Enable Nooted. The playground takes `?csp=strict|nonce|missing` and `?coop=same-origin` to try the CSP and COOP cases above.
 
 ```sh
 pnpm --filter @nooted/sdk test    # unit tests
@@ -231,15 +239,19 @@ Content-Encoding: gzip
 
 - `clientReportId`: UUID generated by the client (used for retries)
 - `note`: 1 to 10,000 characters
-- `url`: the page URL, `http` or `https`
-- `capturedAt`: positive integer, Unix timestamp in milliseconds
+- `url`: the page URL when the report window opened, `http` or `https`
+- `capturedAt`: positive integer, Unix timestamp in milliseconds when the report window opened
 - `release`: optional string, up to 200 characters
 - `device`: `{ userAgent, viewport: { width, height, devicePixelRatio } }`
-- `events`: a non-empty array of rrweb events (each has a numeric `type`, a numeric `timestamp` and `data`), unless `recording` is `false`
-- `focus`: optional `{ start, end }`, Unix timestamps in milliseconds within the events' time span, with `start` before `end`. It marks the part of the recording the reporter wants looked at. The full recording is still sent. Omitted when the reporter left the range at the ends
-- `recording`: optional. `false` means the screen recording was left out. Then `events` holds only the captured error events (rrweb custom events with `data.tag` `nooted:error`), possibly none, and `focus` is not allowed. Omitted means the recording is included
+- `captures`: 0 to 10 captures, each with:
+  - `n`: integer from 1 to 10, unique within the report. Every `[n]` token in `note` must refer to a capture in the report, or the report is rejected
+  - `url`: the page URL at capture time, and `capturedAt`: Unix timestamp in milliseconds
+  - `viewport`: `{ width, height }`, and `scroll`: `{ x, y }`
+  - `demo`: boolean, `true` when a demo clip was recorded
+  - `events`: rrweb events, at least a Meta and a FullSnapshot. The last event is the final frame. Demo clips may also contain `nooted:error` custom events
+  - `marks`: 0 to 20 marked elements, each `{ nodeId, tag, role?, name?, text, selector, rect }`. `text` is at most 200 characters, and `rect` (`{ x, y, width, height }`) is in page coordinates
 
-Unknown top-level or `device` fields are rejected. Extra fields inside events are kept.
+Unknown top-level or `device` fields are rejected, so payloads with `events`, `focus` or `recording` from before captures get `400`. Extra fields inside events are kept.
 
 Responses:
 

@@ -48,7 +48,7 @@ Tapping "Sign in to Nooted" SHALL open the Nooted sign-in window synchronously w
 - **THEN** the SDK ignores it
 
 ### Requirement: Note form
-The form SHALL have a multiline note field (required, at most 10,000 characters), Send and Cancel. Send SHALL be disabled while the note is empty. Cancel SHALL close the window and discard the frozen buffer.
+The report window SHALL be titled "Request a change" and have a multiline note field labelled "What should change?" (required, at most 10,000 characters), the "Point" and "Record" capture actions, the list of captures, Send and Cancel. Finishing a capture SHALL insert a token `[n]` at the cursor position the note had when the capture started. Removing a capture SHALL remove its tokens. Send SHALL be disabled while the note is empty. Cancel SHALL close the window and discard the note and captures.
 
 #### Scenario: Empty note
 - **WHEN** the note is empty or whitespace
@@ -57,6 +57,22 @@ The form SHALL have a multiline note field (required, at most 10,000 characters)
 #### Scenario: Cancel
 - **WHEN** the user taps Cancel
 - **THEN** the window closes and no report is sent or queued
+
+#### Scenario: Inline capture
+- **WHEN** the user types "If I click ", taps "Point", selects a button, taps Done and types "I want a confirmation"
+- **THEN** the note reads "If I click [1] I want a confirmation" and capture 1 is listed below it
+
+#### Scenario: Remove capture
+- **WHEN** the user removes capture 1 from a note containing "[1]"
+- **THEN** the capture is gone, "[1]" is removed from the note, and later captures keep their numbers
+
+#### Scenario: Note kept during capture
+- **WHEN** the user starts a capture and returns with Done, Stop or Cancel
+- **THEN** the note text is unchanged apart from any inserted token
+
+#### Scenario: Unknown token
+- **WHEN** the note contains "[2]" and the report has no capture 2
+- **THEN** Send is disabled and the window explains that [2] has no capture
 
 ### Requirement: Voice input
 Where the browser supports the Web Speech API, the form SHALL show a microphone button. While it is active, recognized speech SHALL be appended to the note. Where it is not supported, no microphone button SHALL be shown.
@@ -70,7 +86,7 @@ Where the browser supports the Web Speech API, the form SHALL show a microphone 
 - **THEN** no microphone button is shown
 
 ### Requirement: Send outcome
-After Send, the window SHALL show a short confirmation and close when the report was uploaded, or say the report was saved and will be sent later when it was queued. If the token was rejected, it SHALL switch to the sign-in state, keeping the note and frozen buffer.
+After Send, the window SHALL show a short confirmation and close when the report was uploaded, or say the report was saved and will be sent later when it was queued. If the token was rejected, it SHALL switch to the sign-in state, keeping the note and captures.
 
 #### Scenario: Uploaded
 - **WHEN** the upload succeeds
@@ -82,14 +98,7 @@ After Send, the window SHALL show a short confirmation and close when the report
 
 #### Scenario: Token expired
 - **WHEN** the server answers 401
-- **THEN** the window shows the sign-in button, and after signing in, Send uploads the same note and buffer
-
-### Requirement: Turn off
-The report window SHALL offer "Turn off Nooted on this device", which clears the enabled flag, stops recording, and removes Nooted's UI from the page.
-
-#### Scenario: Turn off
-- **WHEN** the user chooses "Turn off Nooted on this device"
-- **THEN** the floating button disappears, recording stops, and later page loads do not load the SDK
+- **THEN** the window shows the sign-in button, and after signing in, Send uploads the same note and captures
 
 ### Requirement: Usable on phones and with a keyboard
 The window SHALL fit in a 320 px wide viewport without horizontal scrolling. It SHALL move focus into itself when it opens and return focus when it closes. Escape SHALL close it.

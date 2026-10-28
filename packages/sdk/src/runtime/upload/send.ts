@@ -1,6 +1,6 @@
 // The seam between the report window and the upload pipeline.
 import { nootedUrl, projectKey } from '../auth/sign-in.ts'
-import type { FrozenReport } from '../state.ts'
+import type { ReportDraft } from '../state.ts'
 import { upload } from './client.ts'
 import { getRelease } from './config.ts'
 import { gzip } from './gzip.ts'
@@ -17,58 +17,53 @@ import { queued } from './retry.ts'
 export type SendOutcome = 'delivered' | 'queued' | 'unauthorized' | 'failed'
 
 export interface SendInput {
-  note: string
-  frozen: FrozenReport
+  /** The report being written; keep the same object for the whole report so a re-send reuses the id. */
+  draft: ReportDraft
   /** The bearer token string. */
   token: string
-  /** Focus range chosen on the timeline; ignored when the recording is left out. */
-  focus?: { start: number; end: number }
-  /** Default true. */
-  includeRecording?: boolean
 }
 
 interface Built {
   note: string
-  focus?: { start: number; end: number }
-  includeRecording: boolean
+  /** The draft's captures as they were when built (array and items compared by reference). */
+  captures: readonly unknown[]
   clientReportId: string
   bytes: Uint8Array
 }
 
 /**
- * Keeps the id (and the bytes, while the note is unchanged) of a report between interactive attempts,
- * so a re-send after sign-in or a failed attempt reuses the same client report id.
+ * Keeps the id (and the bytes, while the note and captures are unchanged) of a report between interactive
+ * attempts, so a re-send after sign-in or a failed attempt reuses the same client report id.
  */
-const built = new WeakMap<FrozenReport, Built>()
+const built = new WeakMap<ReportDraft, Built>()
 
-async function build(input: SendInput): Promise<Built> {
-  const previous = built.get(input.frozen)
-  const includeRecording = input.includeRecording ?? true
-  if (
-    previous &&
-    previous.note === input.note &&
-    previous.includeRecording === includeRecording &&
-    previous.focus?.start === input.focus?.start &&
-    previous.focus?.end === input.focus?.end
-  ) {
-    return previous
-  }
+function unchanged(previous: Built, draft: ReportDraft): boolean {
+  return (
+    previous.note === draft.note &&
+    previous.captures.length === draft.captures.length &&
+    draft.captures.every((capture, i) => capture === previous.captures[i])
+  )
+}
+
+async function build({ draft }: SendInput): Promise<Built> {
+  const previous = built.get(draft)
+  if (previous && unchanged(previous, draft)) return previous
+  const captures = [...draft.captures]
   const payload = buildPayload({
     clientReportId: previous?.clientReportId,
-    note: input.note,
-    frozen: input.frozen,
+    note: draft.note,
+    openedAt: draft.openedAt,
+    url: draft.url,
+    captures,
     release: getRelease(),
-    focus: input.focus,
-    includeRecording,
   })
   const next: Built = {
-    note: input.note,
-    focus: input.focus && { ...input.focus },
-    includeRecording,
+    note: draft.note,
+    captures,
     clientReportId: payload.clientReportId,
     bytes: await gzip(JSON.stringify(payload)),
   }
-  built.set(input.frozen, next)
+  built.set(draft, next)
   return next
 }
 
@@ -86,13 +81,13 @@ export async function sendReport(input: SendInput): Promise<SendOutcome> {
   const outcome = await upload(report.bytes, input.token, nootedUrl())
   switch (outcome) {
     case 'delivered':
-      built.delete(input.frozen)
+      built.delete(input.draft)
       return 'delivered'
     case 'unauthorized':
-      // Not queued: the window keeps the note and buffer and sends again (same id) after sign-in.
+      // Not queued: the window keeps the note and captures and sends again (same id) after sign-in.
       return 'unauthorized'
     case 'temporary':
-      built.delete(input.frozen)
+      built.delete(input.draft)
       await enqueue(report)
       return 'queued'
     default:

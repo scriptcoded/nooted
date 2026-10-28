@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { attachMotion } from '../triggers/motion.ts'
 import { requestMotionPermission } from '../triggers/motion-permission.ts'
 import { trigger } from '../trigger.ts'
+import { requestFabFocus, takeFabFocus } from './focus-return.ts'
 
 // Position is stored as fractions (0..1) of the free range (viewport minus button and margins), so it
 // survives other viewport sizes and rotation, and "left edge" stays the left edge.
@@ -45,6 +46,12 @@ export function FloatingButton({ pending, shakeThreshold }: { pending: number; s
   const [, resized] = useState(0)
   const drag = useRef<{ id: number; sx: number; sy: number; dx: number; dy: number; moved: boolean } | null>(null)
   const suppressClick = useRef(false)
+  const button = useRef<HTMLButtonElement>(null)
+
+  // Back after the report window closed: it opened from this button, so focus returns here.
+  useLayoutEffect(() => {
+    if (takeFabFocus()) button.current?.focus()
+  }, [])
 
   useEffect(() => {
     const onResize = () => resized((n) => n + 1) // fractions are re-applied, so the clamp follows the viewport
@@ -57,8 +64,10 @@ export function FloatingButton({ pending, shakeThreshold }: { pending: number; s
   return (
     <button
       type="button"
+      ref={button}
       class={dragging ? 'fab dragging' : 'fab'}
-      aria-label="Report a problem"
+      aria-label="Request a change"
+      title="Request a change"
       style={{ left: `${left}px`, top: `${top}px` }}
       onPointerDown={(e) => {
         if (e.button !== 0) return
@@ -107,13 +116,14 @@ export function FloatingButton({ pending, shakeThreshold }: { pending: number; s
           return
         }
         // Must run synchronously inside the click for iOS to show the prompt.
+        requestFabFocus()
         requestMotionPermission(() => attachMotion(shakeThreshold))
         trigger()
       }}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 3l9.5 17h-19z" />
-        <path d="M12 10v4M12 17.5v.01" />
+        <path d="M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6" />
+        <path d="M17.5 2.8a1.9 1.9 0 0 1 2.7 2.7L11.5 14.2 8 15l.8-3.5z" />
       </svg>
       {pending > 0 && <span class="badge" aria-hidden="true">{pending > 99 ? '99+' : pending}</span>}
     </button>

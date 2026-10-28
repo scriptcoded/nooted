@@ -68,7 +68,7 @@ test.describe('COOP popup', () => {
     await debugNooted(page)
     await page.goto('/?coop=same-origin')
     await waitForRuntime(page)
-    await page.locator('#nooted-host').getByRole('button', { name: 'Report a problem' }).click()
+    await page.locator('#nooted-host').getByRole('button', { name: 'Request a change' }).click()
     const popupPromise = context.waitForEvent('page')
     await page.locator('#nooted-host').getByRole('button', { name: 'Sign in to Nooted' }).click()
     const popup = await popupPromise

@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import { debugNooted, enableNooted, waitForRuntime } from './helpers.ts'
 
-const fab = (page: Page) => page.locator('#nooted-host').getByRole('button', { name: 'Report a problem' })
-const dialog = (page: Page) => page.getByRole('dialog', { name: 'Report a problem' })
+const fab = (page: Page) => page.locator('#nooted-host').getByRole('button', { name: 'Request a change' })
+const dialog = (page: Page) => page.getByRole('dialog', { name: 'Request a change' })
 const opened = (page: Page) => page.evaluate(() => document.documentElement.dataset.nootedOpened ?? '0')
 
 test.beforeEach(async ({ page }) => {
@@ -78,33 +78,32 @@ test('shakeThreshold can be overridden through init', async ({ page }) => {
   await expect(dialog(page)).toHaveCount(0)
 })
 
-test('Ctrl+Shift+. opens the window; a second trigger keeps the first freeze', async ({ page }) => {
+test('Ctrl+Shift+. opens the window; a second trigger keeps the first draft', async ({ page }) => {
   await page.goto('/')
   await waitForRuntime(page)
   await page.waitForTimeout(300)
   await page.keyboard.press('Control+Shift+.')
   await expect(dialog(page)).toBeVisible()
-  const first = await page.evaluate(() => (window as any).__nootedTestReport as { capturedAt: number; events: unknown[]; url: string })
-  expect(first.capturedAt).toBeGreaterThan(0)
+  const first = await page.evaluate(() => (window as any).__nootedDraft() as { openedAt: number; url: string })
+  expect(first.openedAt).toBeGreaterThan(0)
   expect(first.url).toBe(page.url())
 
   await page.waitForTimeout(50)
   await page.keyboard.press('Control+Shift+.')
   await page.evaluate(() => window.nooted?.open())
   expect(await opened(page)).toBe('1')
-  const second = await page.evaluate(() => (window as any).__nootedTestReport as { capturedAt: number; events: unknown[] })
-  expect(second.capturedAt).toBe(first.capturedAt)
-  expect(second.events.length).toBe(first.events.length)
+  const second = await page.evaluate(() => (window as any).__nootedDraft() as { openedAt: number })
+  expect(second.openedAt).toBe(first.openedAt)
 
-  // Closing discards it; the next trigger takes a fresh one.
+  // Closing discards it; the next trigger starts a fresh draft.
   await page.getByRole('button', { name: 'Cancel' }).click()
   await expect(dialog(page)).toHaveCount(0)
   await page.waitForTimeout(20)
   await page.keyboard.press('Control+Shift+.')
   await expect(dialog(page)).toBeVisible()
   expect(await opened(page)).toBe('2')
-  const third = await page.evaluate(() => (window as any).__nootedTestReport as { capturedAt: number })
-  expect(third.capturedAt).toBeGreaterThan(first.capturedAt)
+  const third = await page.evaluate(() => (window as any).__nootedDraft() as { openedAt: number })
+  expect(third.openedAt).toBeGreaterThan(first.openedAt)
 })
 
 test('other shortcuts are left alone', async ({ page }) => {

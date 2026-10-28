@@ -57,7 +57,7 @@ test('defines the stub without side effects when disabled', () => {
   const env = run()
   const n = env.w.nooted
   assert.equal(n.v, 1)
-  assert.deepEqual([n.k, n.u, n.r, n.q, n.e], ['key1', 'https://nooted.test', '1.0', [], []])
+  assert.deepEqual([n.k, n.u, n.r, n.q], ['key1', 'https://nooted.test', '1.0', []])
   assert.equal(env.scripts.length, 0)
   assert.deepEqual(env.listeners, [])
   assert.equal(env.replaced.length, 0)
@@ -70,53 +70,27 @@ test('does not clobber an existing global', () => {
   assert.equal(env.scripts.length, 0)
 })
 
-test('enabled device injects the async runtime script and listens for errors', () => {
+test('enabled device injects the async runtime script and adds no listeners', () => {
   const env = run({ enabled: true })
   assert.equal(env.scripts.length, 1)
   assert.equal(env.scripts[0].src, 'https://nooted.test/sdk/v1/nooted.js')
   assert.equal(env.scripts[0].async, true)
-  assert.deepEqual(env.listeners.sort(), ['error', 'unhandledrejection'])
+  assert.deepEqual(env.listeners, [])
   env.w.nooted.l()
   assert.equal(env.scripts.length, 1, 'l() is idempotent')
 })
 
-test('#nooted sets the flag, loads, and cleans the URL without reload', () => {
-  const env = run({ hash: '#nooted' })
-  assert.equal(env.store.get('nooted:enabled'), '1')
-  assert.equal(env.scripts.length, 1)
-  assert.deepEqual(env.replaced, [[{ s: 1 }, '', '/cart?a=1']])
-})
-
-test('#nooted-off clears the flag, cleans the URL and does not load', () => {
-  const env = run({ hash: '#nooted-off', enabled: true })
-  assert.equal(env.store.has('nooted:enabled'), false)
-  assert.equal(env.scripts.length, 0)
-  assert.equal(env.replaced.length, 1)
-})
-
-test('other hashes are left alone', () => {
-  const env = run({ hash: '#nooted2' })
-  assert.equal(env.replaced.length, 0)
-  assert.equal(env.store.size, 0)
-})
-
-test('early errors and rejections queue only when enabled, until the runtime takes over', () => {
-  const off = run()
-  off.w.emit('error', { message: 'x' })
-  assert.deepEqual(off.w.nooted.e, [])
-
-  const env = run({ enabled: true })
-  env.w.emit('error', { message: 'boom', filename: 'a.js', lineno: 3, colno: 4, error: { stack: 'S' } })
-  env.w.emit('unhandledrejection', { reason: 'nope' })
-  const [a, b] = env.w.nooted.e
-  assert.deepEqual({ ...a, time: 0 }, { type: 'error', message: 'boom', source: 'a.js', line: 3, column: 4, stack: 'S', time: 0 })
-  assert.equal(b.type, 'rejection')
-  assert.equal(b.reason, 'nope')
-  assert.equal(typeof b.time, 'number')
-
-  env.w.nooted.t = true
-  env.w.emit('error', { message: 'late' })
-  assert.equal(env.w.nooted.e.length, 2)
+test('a hash in the URL has no effect: flag untouched, no load, URL untouched', () => {
+  for (const hash of ['#nooted', '#nooted-off', '#nooted2']) {
+    const off = run({ hash })
+    assert.equal(off.store.size, 0)
+    assert.equal(off.scripts.length, 0)
+    assert.equal(off.replaced.length, 0)
+    const on = run({ hash, enabled: true })
+    assert.equal(on.store.get('nooted:enabled'), '1')
+    assert.equal(on.scripts.length, 1)
+    assert.equal(on.replaced.length, 0)
+  }
 })
 
 test('API calls queue; init enables and loads, disable clears the flag', () => {
@@ -126,7 +100,7 @@ test('API calls queue; init enables and loads, disable clears the flag', () => {
   assert.deepEqual(env.w.nooted.q, [['open', []], ['init', [{ release: '2' }]]])
   assert.equal(env.store.get('nooted:enabled'), '1')
   assert.equal(env.scripts.length, 1)
-  assert.deepEqual(env.listeners.sort(), ['error', 'unhandledrejection'])
+  assert.deepEqual(env.listeners, [])
   env.w.nooted.disable()
   assert.equal(env.store.has('nooted:enabled'), false)
 })

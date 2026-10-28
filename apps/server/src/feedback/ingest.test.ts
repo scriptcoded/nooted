@@ -9,6 +9,21 @@ import { createTestApp, signIn } from '../test-helpers.ts'
 
 const ORIGIN = 'https://shop.example.com'
 
+const capture = (n: number, overrides: Record<string, unknown> = {}) => ({
+  n,
+  url: 'https://shop.example.com/cart',
+  capturedAt: 1_700_000_000_000,
+  viewport: { width: 800, height: 600 },
+  scroll: { x: 0, y: 0 },
+  demo: false,
+  events: [
+    { type: 4, timestamp: 1, data: { href: 'https://shop.example.com/cart' } },
+    { type: 2, timestamp: 2, data: {} },
+  ],
+  marks: [{ nodeId: 5, tag: 'button', text: 'Pay', selector: '#pay', rect: { x: 1, y: 2, width: 3, height: 4 } }],
+  ...overrides,
+})
+
 function payload(overrides: Record<string, unknown> = {}) {
   return {
     clientReportId: randomUUID(),
@@ -17,7 +32,7 @@ function payload(overrides: Record<string, unknown> = {}) {
     capturedAt: 1_700_000_000_000,
     release: 'v1.2.3',
     device: { userAgent: 'test', viewport: { width: 800, height: 600, devicePixelRatio: 2 } },
-    events: [{ type: 2, timestamp: 1, data: {} }],
+    captures: [],
     ...overrides,
   }
 }
@@ -101,63 +116,61 @@ describe('POST /api/sdk/reports', () => {
     assert.equal(puts.length, 0)
   })
 
-  it('rejects an empty event list with 400', async () => {
+  it('accepts a report with no captures', async () => {
     const { tokenFor, upload, rows } = await setup()
-    const res = await upload(await tokenFor('p1'), gz(payload({ events: [] })))
-    assert.equal(res.status, 400)
-    assert.equal((await rows()).length, 0)
-  })
-
-  it('accepts omitted recording with no events', async () => {
-    const { tokenFor, upload, rows } = await setup()
-    const res = await upload(await tokenFor('p1'), gz(payload({ recording: false, events: [] })))
-    assert.equal(res.status, 201)
+    assert.equal((await upload(await tokenFor('p1'), gz(payload({ captures: [] })))).status, 201)
     assert.equal((await rows()).length, 1)
   })
 
-  it('rejects omitted recording that carries screen data', async () => {
+  it('rejects 11 captures with 400', async () => {
     const { tokenFor, upload, rows } = await setup()
-    const res = await upload(await tokenFor('p1'), gz(payload({ recording: false })))
-    assert.equal(res.status, 400)
-    const json = (await res.json()) as { error: string; issues: { path: string }[] }
-    assert.equal(json.error, 'invalid_report')
-    assert.ok(json.issues.some((i) => i.path === 'events.0'))
-    assert.equal((await rows()).length, 0)
-  })
-
-  it('rejects a focus with start >= end', async () => {
-    const { tokenFor, upload, rows } = await setup()
-    const res = await upload(await tokenFor('p1'), gz(payload({ focus: { start: 5, end: 5 } })))
+    const captures = Array.from({ length: 11 }, (_, i) => capture(i + 1))
+    const res = await upload(await tokenFor('p1'), gz(payload({ captures })))
     assert.equal(res.status, 400)
     assert.equal((await rows()).length, 0)
   })
 
-  it('rejects a focus outside the event span', async () => {
+  it('rejects the old format with a top-level events list', async () => {
     const { tokenFor, upload, rows } = await setup()
-    const events = [{ type: 2, timestamp: 1000, data: {} }, { type: 3, timestamp: 2000, data: {} }]
-    const token = await tokenFor('p1')
-    assert.equal((await upload(token, gz(payload({ events, focus: { start: 999, end: 1500 } })))).status, 400)
-    assert.equal((await upload(token, gz(payload({ events, focus: { start: 1500, end: 3001 } })))).status, 400)
-    assert.equal((await rows()).length, 0)
-  })
-
-  it('rejects a focus when recording is omitted', async () => {
-    const { tokenFor, upload, rows } = await setup()
-    const res = await upload(await tokenFor('p1'), gz(payload({ recording: false, events: [], focus: { start: 1, end: 2 } })))
+    const res = await upload(await tokenFor('p1'), gz(payload({ events: [{ type: 2, timestamp: 1, data: {} }] })))
     assert.equal(res.status, 400)
     assert.equal((await rows()).length, 0)
   })
 
-  it('stores a valid focus byte for byte in the raw blob', async () => {
+  it('rejects a note token without a capture', async () => {
+    const { tokenFor, upload, rows } = await setup()
+    const res = await upload(await tokenFor('p1'), gz(payload({ note: 'see [3]', captures: [capture(1), capture(2)] })))
+    assert.equal(res.status, 400)
+    const json = (await res.json()) as { issues: { path: string; message: string }[] }
+    assert.ok(json.issues.some((i) => i.path === 'note' && i.message.includes('[3]')))
+    assert.equal((await rows()).length, 0)
+  })
+
+  it('rejects a duplicate capture number', async () => {
+    const { tokenFor, upload, rows } = await setup()
+    const res = await upload(await tokenFor('p1'), gz(payload({ note: '[1]', captures: [capture(1), capture(1)] })))
+    assert.equal(res.status, 400)
+    assert.equal((await rows()).length, 0)
+  })
+
+  it('rejects a capture without a full snapshot', async () => {
+    const { tokenFor, upload, rows } = await setup()
+    const events = [{ type: 4, timestamp: 1, data: {} }, { type: 3, timestamp: 2, data: {} }]
+    const res = await upload(await tokenFor('p1'), gz(payload({ note: '[1]', captures: [capture(1, { events })] })))
+    assert.equal(res.status, 400)
+    assert.equal((await rows()).length, 0)
+  })
+
+  it('accepts a capture the note does not mention, and stores the blob byte for byte', async () => {
     const { t, tokenFor, upload, rows } = await setup()
-    const events = [{ type: 2, timestamp: 1000, data: {} }, { type: 3, timestamp: 2000, data: {} }]
-    const body = gz(payload({ events, focus: { start: 1200, end: 1800 } }))
+    const body = gz(payload({ note: 'only [1] here', captures: [capture(1), capture(2, { demo: true })] }))
     const res = await upload(await tokenFor('p1'), body)
     assert.equal(res.status, 201)
     const [row] = await rows()
     const blob = await t.blobs.get(row?.blob_key ?? '')
     assert.ok(blob && Buffer.compare(Buffer.from(blob), body) === 0)
-    assert.deepEqual((JSON.parse(gunzipSync(Buffer.from(blob)).toString()) as { focus: unknown }).focus, { start: 1200, end: 1800 })
+    const stored = JSON.parse(gunzipSync(Buffer.from(blob)).toString()) as { captures: { n: number }[] }
+    assert.deepEqual(stored.captures.map((c) => c.n), [1, 2])
   })
 
   it('rejects invalid gzip and invalid json with 400', async () => {

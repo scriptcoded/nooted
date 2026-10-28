@@ -7,7 +7,7 @@ Gets Nooted onto a page cheaply and safely: a tiny inline loader that only fetch
 ## Requirements
 
 ### Requirement: Inline loader
-The loader SHALL be an inline script with the project key and Nooted URL embedded. When `nooted:enabled` is not set in `localStorage`, it SHALL make no network requests and register no listeners other than the `#nooted` hash check. Its minified, gzipped size SHALL be at most 1 KB.
+The loader SHALL be an inline script with the project key and Nooted URL embedded. When `nooted:enabled` is not set in `localStorage`, it SHALL make no network requests and register no listeners. Its minified, gzipped size SHALL be at most 1 KB.
 
 #### Scenario: Disabled device
 - **WHEN** a page with the loader is opened on a device where Nooted was never enabled
@@ -16,28 +16,6 @@ The loader SHALL be an inline script with the project key and Nooted URL embedde
 #### Scenario: Enabled device
 - **WHEN** a page with the loader is opened and `nooted:enabled` is set
 - **THEN** the loader injects an async script for `<nooted>/sdk/v1/nooted.js` before the app bundle has finished loading
-
-### Requirement: Enabling and disabling
-The flag SHALL be set by `nooted.init()` or by loading any page whose URL hash is exactly `#nooted`. It SHALL be cleared by `#nooted-off`, `nooted.disable()` or the report window's "Turn off" action. On either hash, the loader SHALL remove the hash from the URL without reloading or adding a history entry.
-
-#### Scenario: Enable by hash
-- **WHEN** a user visits `https://shop.example.com/cart#nooted`
-- **THEN** the flag is set, the SDK loads, and the URL becomes `https://shop.example.com/cart`
-
-#### Scenario: Disable by hash
-- **WHEN** a user visits a page with `#nooted-off`
-- **THEN** the flag is cleared and the SDK no longer loads on later page views
-
-### Requirement: Early queueing
-Until the SDK has loaded, the loader SHALL record `error` and `unhandledrejection` events and calls to the public API in a queue. The SDK SHALL process that queue when it starts, so nothing that happens before it loads is lost.
-
-#### Scenario: Error before SDK loads
-- **WHEN** the app throws during startup before `nooted.js` has loaded
-- **THEN** the error appears in the timeline of the next report
-
-#### Scenario: Early API call
-- **WHEN** the app calls `nooted.open()` before the SDK has loaded
-- **THEN** the report window opens once the SDK has loaded
 
 ### Requirement: Public API
 The `@nooted/sdk` package SHALL export a typed `nooted` object with `init(options?)`, `open()`, `signOut()` and `disable()`, which forward to the loaded SDK or to the loader's queue. `init` SHALL accept a `release` string and a `button` flag. `signOut()` SHALL revoke the current upload token on the server and forget it locally.
@@ -107,3 +85,29 @@ Every Nooted entry point (loader, API calls, event handlers and timers) SHALL ca
 #### Scenario: Internal failure
 - **WHEN** an exception occurs inside Nooted's event handling
 - **THEN** it is logged with the `[nooted]` prefix and does not reach the app's error handlers
+
+### Requirement: Enabling from the app
+The enabled flag SHALL be set only by `nooted.init()` and cleared only by `nooted.disable()`. The loader SHALL NOT read or change the URL.
+
+#### Scenario: Hash has no effect
+- **WHEN** a user visits `https://shop.example.com/cart#nooted` on a device without the flag
+- **THEN** the flag stays unset, the SDK does not load, and the URL is unchanged
+
+#### Scenario: Disable from the app
+- **WHEN** the app calls `nooted.disable()`
+- **THEN** the flag is cleared, Nooted's UI is removed, and later page views do not load the SDK
+
+#### Scenario: Enable again on the same page
+- **WHEN** the app calls `nooted.disable()` and later `nooted.init()` without a reload
+- **THEN** the floating button and triggers come back without loading the SDK again
+
+### Requirement: Early call queueing
+Until the SDK has loaded, the loader SHALL record calls to the public API in a queue. The SDK SHALL process that queue in order when it starts, so no call made before it loads is lost. The loader SHALL NOT listen for errors.
+
+#### Scenario: Early API call
+- **WHEN** the app calls `nooted.open()` before the SDK has loaded
+- **THEN** the report window opens once the SDK has loaded
+
+#### Scenario: No error listeners
+- **WHEN** a page with Nooted enabled loads
+- **THEN** the loader adds no `error` or `unhandledrejection` listeners

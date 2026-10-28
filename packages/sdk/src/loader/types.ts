@@ -12,24 +12,11 @@ export interface LoaderConfig {
   r?: string
 }
 
-/** An error the loader caught before the runtime took over. `time` is Date.now(). */
-export type EarlyError =
-  | {
-      type: 'error'
-      message: string
-      source?: string
-      line?: number
-      column?: number
-      stack?: string
-      time: number
-    }
-  | { type: 'rejection'; reason: unknown; time: number }
-
 export type ApiMethod = 'init' | 'open' | 'signOut' | 'disable'
 
 /**
  * The `window.nooted` global. The loader defines it with queueing methods; the
- * runtime replaces the methods with real ones, drains `q` and `e`, then sets `t`.
+ * runtime replaces the methods with real ones, drains `q`, then sets `t`.
  */
 export interface NootedStub {
   /** Contract version. */
@@ -39,9 +26,7 @@ export interface NootedStub {
   r?: string
   /** Calls made before the runtime loaded, in order. */
   q: [ApiMethod, unknown[]][]
-  /** Early errors (capped). The loader stops appending once `t` is true. */
-  e: EarlyError[]
-  /** Set by the runtime when it takes over. Stops the loader's error listeners from queueing. */
+  /** Set by the runtime when it takes over, so a second copy of the runtime does not boot. */
   t?: boolean
   /** Replay API, registered by dist/replay.js when the runtime loads it on demand. */
   p?: ReplayApi

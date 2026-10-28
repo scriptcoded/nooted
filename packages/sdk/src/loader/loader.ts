@@ -20,18 +20,13 @@ export default function load(c: LoaderConfig): void {
     const nonce = me && (me.nonce || me.getAttribute('nonce'))
     const src = c.u + '/sdk/v1/nooted.js'
     let loading = false
-    let listening = false
 
-    const push = (e: NootedStub['e'][number]) => {
-      if (!n.t && n.e.length < 50) n.e.push(e)
-    }
     const n: NootedStub = {
       v: 1,
       k: c.k,
       u: c.u,
       r: c.r,
       q: [],
-      e: [],
       l() {
         if (loading) return
         loading = true
@@ -47,33 +42,13 @@ export default function load(c: LoaderConfig): void {
       },
     } as unknown as NootedStub
 
-    const enable = () => {
-      n.l()
-      if (listening) return
-      listening = true
-      w.addEventListener('error', (ev) =>
-        push({
-          type: 'error',
-          message: ev.message,
-          source: ev.filename,
-          line: ev.lineno,
-          column: ev.colno,
-          stack: ev.error?.stack,
-          time: Date.now(),
-        }),
-      )
-      w.addEventListener('unhandledrejection', (ev) =>
-        push({ type: 'rejection', reason: ev.reason, time: Date.now() }),
-      )
-    }
-
     for (const m of ['init', 'open', 'signOut', 'disable'] as ApiMethod[]) {
       n[m] = (...a: unknown[]) => {
         n.q.push([m, a])
         try {
           if (m == 'init') {
             flag(true)
-            enable()
+            n.l()
           } else if (m == 'disable') flag(false)
         } catch (e) {
           console.warn('[nooted]', e)
@@ -82,16 +57,11 @@ export default function load(c: LoaderConfig): void {
     }
     w.nooted = n
 
-    const h = location.hash
-    if (h == '#nooted' || h == '#nooted-off') {
-      flag(h == '#nooted')
-      history.replaceState(history.state, '', location.pathname + location.search)
-    }
     let on = false
     try {
       on = localStorage.getItem(key) == '1'
     } catch {}
-    if (on) enable()
+    if (on) n.l()
   } catch (e) {
     console.warn('[nooted]', e)
   }

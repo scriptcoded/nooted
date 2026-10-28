@@ -87,7 +87,7 @@ export function mount(shakeThreshold: () => number | undefined): void {
   })
 }
 
-/** Removes the UI ("Turn off"). */
+/** Removes the UI (`nooted.disable()`). */
 export function unmount(): void {
   cleanup?.()
   cleanup = undefined

@@ -11,6 +11,25 @@ $('reject-promise').addEventListener('click', () => {
   void Promise.reject({ code: 42 })
 })
 
+// Fixtures for the capture e2e tests: a handler with a visible side effect, and a menu that opens on click.
+$('fx-counter').addEventListener('click', () => {
+  $('fx-count').textContent = String(Number($('fx-count').textContent) + 1)
+})
+
+$('fx-menu-button').addEventListener('click', () => {
+  const menu = $('fx-menu')
+  menu.hidden = !menu.hidden
+  $('fx-menu-button').setAttribute('aria-expanded', String(!menu.hidden))
+})
+
+$('enable-nooted').addEventListener('click', () => {
+  nooted.init()
+})
+
+$('disable-nooted').addEventListener('click', () => {
+  nooted.disable()
+})
+
 $('report-problem').addEventListener('click', () => {
   nooted.open()
 })

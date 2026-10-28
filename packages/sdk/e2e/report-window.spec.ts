@@ -15,17 +15,16 @@ import {
 } from './helpers.ts'
 
 const host = (page: Page) => page.locator('#nooted-host')
-const fab = (page: Page) => host(page).getByRole('button', { name: 'Report a problem' })
-const dialog = (page: Page) => page.getByRole('dialog', { name: 'Report a problem' })
+const fab = (page: Page) => host(page).getByRole('button', { name: 'Request a change' })
+const dialog = (page: Page) => page.getByRole('dialog', { name: 'Request a change' })
 const signInButton = (page: Page) => host(page).getByRole('button', { name: 'Sign in to Nooted' })
-const note = (page: Page) => host(page).getByRole('textbox', { name: 'What went wrong?' })
+const note = (page: Page) => host(page).getByRole('textbox', { name: 'What should change?' })
 const send = (page: Page) => host(page).getByRole('button', { name: 'Send', exact: true })
 const cancel = (page: Page) => host(page).getByRole('button', { name: 'Cancel' })
 const mic = (page: Page) => host(page).getByRole('button', { name: /voice input/i })
 
 type TestWindow = Window & {
-  __nootedTestReport?: { capturedAt: number; events: unknown[] }
-  __nootedBufferSize?: () => number
+  __nootedDraft?: () => { openedAt: number; url: string; captures: unknown[] } | undefined
   __fakeSR?: { started: boolean; lang: string; onresult: (e: unknown) => void }
 }
 
@@ -70,14 +69,13 @@ async function installFakeSpeech(page: Page): Promise<void> {
 }
 
 test.describe('sign-in', () => {
-  test('signs in through the real popup and Dex, keeping the frozen buffer, then sends the same report', async ({ page }) => {
+  test('signs in through the real popup and Dex, keeping the draft, then sends the same report', async ({ page }) => {
     const sent = await captureReports(page)
     await open(page)
     await expect(signInButton(page)).toBeVisible()
     await expect(note(page)).toHaveCount(0)
     const before = await page.evaluate(() => ({
-      capturedAt: (window as TestWindow).__nootedTestReport!.capturedAt,
-      events: (window as TestWindow).__nootedTestReport!.events.length,
+      openedAt: (window as TestWindow).__nootedDraft!()!.openedAt,
     }))
 
     const popup = await signInThroughPopup(page, 'admin@example.com')
@@ -85,10 +83,9 @@ test.describe('sign-in', () => {
     await expect.poll(() => popup.isClosed()).toBe(true)
     expect(await storedToken(page)).toContain('"token"')
 
-    // Still the window's original freeze: not replaced by sign-in.
+    // Still the window's original draft: not replaced by sign-in.
     const after = await page.evaluate(() => ({
-      capturedAt: (window as TestWindow).__nootedTestReport!.capturedAt,
-      events: (window as TestWindow).__nootedTestReport!.events.length,
+      openedAt: (window as TestWindow).__nootedDraft!()!.openedAt,
     }))
     expect(after).toEqual(before)
     expect(await page.evaluate(() => document.documentElement.dataset.nootedOpened)).toBe('1')
@@ -97,8 +94,7 @@ test.describe('sign-in', () => {
     await send(page).click()
     await expect(dialog(page)).toHaveCount(0)
     expect(sent).toHaveLength(1)
-    expect(sent[0]).toMatchObject({ note: 'it broke', capturedAt: before.capturedAt })
-    expect(sent[0]!.events.length).toBe(before.events)
+    expect(sent[0]).toMatchObject({ note: 'it broke', capturedAt: before.openedAt, captures: [] })
   })
 
   test('a valid stored token shows the form directly; an expiring one does not', async ({ page }) => {
@@ -191,6 +187,24 @@ test.describe('sign-in', () => {
 })
 
 test.describe('note form', () => {
+  test('the window: title, toolbar, hint, signed-in footer and the button tooltip', async ({ page }) => {
+    await seedToken(page)
+    await installFakeSpeech(page)
+    await open(page)
+    await expect(host(page).getByRole('heading', { name: 'Request a change' })).toBeVisible()
+    await expect(note(page)).toHaveAttribute('placeholder', 'Describe the change. Point at things or record a demo to show what you mean.')
+    const tools = host(page).locator('.toolbar .btn')
+    await expect(tools).toHaveCount(3)
+    await expect(tools.nth(0)).toHaveText('Point')
+    await expect(tools.nth(1)).toHaveText('Record')
+    await expect(tools.nth(2)).toHaveText('')
+    for (const i of [0, 1, 2]) expect((await tools.nth(i).boundingBox())!.height).toBe(36)
+    await expect(host(page).getByText('Point: tap the parts of the page you mean. Record: show it in action.')).toBeVisible()
+    await expect(host(page).locator('.footer')).toContainText(/Signed in as \S+@\S+/)
+    await cancel(page).click()
+    await expect(fab(page)).toHaveAttribute('title', 'Request a change')
+  })
+
   test.beforeEach(async ({ page }) => {
     await seedRealToken(page)
   })
@@ -214,7 +228,7 @@ test.describe('note form', () => {
     expect(await note(page).inputValue()).toHaveLength(10_000)
   })
 
-  test('Cancel closes, discards the freeze and sends nothing', async ({ page }) => {
+  test('Cancel closes, discards the draft and sends nothing', async ({ page }) => {
     const reports: string[] = []
     page.on('request', (r) => r.url().includes('/api/sdk/reports') && reports.push(r.url()))
     await open(page)
@@ -289,10 +303,10 @@ test.describe('note form', () => {
     await expect(send(page)).toBeEnabled()
   })
 
-  test('unauthorized: back to sign-in keeping note and freeze; after signing in Send uploads the same report', async ({ page }) => {
+  test('unauthorized: back to sign-in keeping note and draft; after signing in Send uploads the same report', async ({ page }) => {
     const requests = await interceptReports(page, (route, n) => (n === 1 ? fulfillStatus(route, 401) : route.continue()))
     await open(page)
-    const frozen = await page.evaluate(() => (window as TestWindow).__nootedTestReport!.capturedAt)
+    const openedAt = await page.evaluate(() => (window as TestWindow).__nootedDraft!()!.openedAt)
     await note(page).fill('keep me')
     await send(page).click()
     await expect(signInButton(page)).toBeVisible()
@@ -304,7 +318,7 @@ test.describe('note form', () => {
     await send(page).click()
     await expect(dialog(page)).toHaveCount(0)
     expect(requests).toHaveLength(2)
-    expect(requests[1]!.payload).toMatchObject({ note: 'keep me', capturedAt: frozen })
+    expect(requests[1]!.payload).toMatchObject({ note: 'keep me', capturedAt: openedAt, captures: [] })
     expect(requests[1]!.payload.clientReportId).toBe(requests[0]!.payload.clientReportId)
     expect(requests[1]!.authorization).not.toBe(requests[0]!.authorization)
   })
@@ -354,24 +368,19 @@ test.describe('voice input', () => {
   })
 })
 
-test.describe('turn off', () => {
-  test('removes the UI, clears the flag, stops recording, and later loads make no bundle request', async ({ page }) => {
-    await page.goto('/#nooted') // the loader's hash switch enables Nooted without re-setting the flag on reload
+test.describe('nooted.disable()', () => {
+  test('removes the UI, clears the flag, stops triggers, and later loads make no bundle request', async ({ page }) => {
+    await page.goto('/')
+    await page.evaluate(() => window.nooted!.init())
     await waitForRuntime(page)
     await fab(page).click()
     await expect(dialog(page)).toBeVisible()
-    await page.evaluate(() => document.body.append(Object.assign(document.createElement('p'), { textContent: 'before' })))
-    await expect.poll(() => page.evaluate(() => (window as TestWindow).__nootedBufferSize!())).toBeGreaterThan(0)
 
-    await host(page).getByRole('button', { name: 'Turn off Nooted on this device' }).click()
+    await page.evaluate(() => window.nooted!.disable())
     await expect(host(page)).toHaveCount(0)
     await expect(dialog(page)).toHaveCount(0)
     expect(await page.evaluate(() => localStorage.getItem('nooted:enabled'))).toBeNull()
 
-    // Page changes are no longer recorded and the buffer was emptied.
-    await page.evaluate(() => document.body.append(Object.assign(document.createElement('p'), { textContent: 'after' })))
-    await page.waitForTimeout(300)
-    expect(await page.evaluate(() => (window as TestWindow).__nootedBufferSize!())).toBe(0)
     // Triggers are off: the shortcut does nothing.
     await page.keyboard.press('Control+Shift+Period')
     await page.waitForTimeout(200)
@@ -382,13 +391,6 @@ test.describe('turn off', () => {
     await page.waitForTimeout(500)
     expect(requests).toEqual([])
     await expect(host(page)).toHaveCount(0)
-  })
-
-  test('nooted.disable() does the same teardown', async ({ page }) => {
-    await open(page)
-    await page.evaluate(() => window.nooted!.disable())
-    await expect(host(page)).toHaveCount(0)
-    expect(await page.evaluate(() => localStorage.getItem('nooted:enabled'))).toBeNull()
   })
 })
 
@@ -410,7 +412,8 @@ test.describe('small phones', () => {
       send(page),
       cancel(page),
       mic(page),
-      host(page).getByRole('button', { name: 'Turn off Nooted on this device' }),
+      host(page).getByRole('button', { name: 'Point at something' }),
+      host(page).getByRole('button', { name: 'Record a demo' }),
     ]
     for (const control of controls) {
       await expect(control).toBeVisible()

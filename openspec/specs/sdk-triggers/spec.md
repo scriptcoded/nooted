@@ -11,7 +11,7 @@ On devices that report motion, the SDK SHALL open the report window when it dete
 
 #### Scenario: Shake
 - **WHEN** the user shakes the phone firmly 3 times within a second
-- **THEN** the buffer is frozen and the report window opens
+- **THEN** the report window opens
 
 #### Scenario: Normal movement
 - **WHEN** the user walks while scrolling the page
@@ -37,14 +37,14 @@ While Nooted is enabled, pressing Ctrl+Shift+. (or Cmd+Shift+. on macOS) SHALL t
 
 #### Scenario: Desktop shortcut
 - **WHEN** a desktop user presses Ctrl+Shift+.
-- **THEN** the buffer is frozen and the report window opens
+- **THEN** the report window opens
 
 ### Requirement: Floating button
 While Nooted is enabled, the SDK SHALL show a small floating button unless the app passed `button: false` to `init`. Tapping it SHALL trigger a report. The button SHALL be draggable by touch or mouse, stay within the viewport, and keep its position across page loads on the same device.
 
 #### Scenario: Tap button
 - **WHEN** the user taps the floating button
-- **THEN** the buffer is frozen and the report window opens
+- **THEN** the report window opens
 
 #### Scenario: Drag button
 - **WHEN** the user drags the button to the left edge and reloads the page
@@ -59,4 +59,4 @@ While Nooted is enabled, the SDK SHALL show a small floating button unless the a
 
 #### Scenario: App menu item
 - **WHEN** the app calls `nooted.open()` from a "Report a problem" menu item
-- **THEN** the buffer is frozen and the report window opens
+- **THEN** the report window opens

@@ -20,10 +20,15 @@
     <main>
       <h1>Nooted SDK playground</h1>
       <p>
-        Press <kbd>#nooted</kbd> at the end of the URL to enable Nooted on this page, and
-        <kbd>#nooted-off</kbd> to disable it. Then use the Report a problem button, or the floating
-        button Nooted adds. The page is served on <code>localhost:5174</code>, so add that origin to the project.
+        Press Enable Nooted to turn Nooted on for this page (it stays on after reloads, as it would
+        after the app calls <code>nooted.init()</code>), and Disable Nooted to turn it off. Then use the
+        Request a change button, or the floating button Nooted adds. The page is served on <code>localhost:5174</code>, so add that origin to the project.
       </p>
+
+      <section id="controls">
+        <button id="enable-nooted" type="button">Enable Nooted</button>
+        <button id="disable-nooted" type="button">Disable Nooted</button>
+      </section>
 
       <nav>
         <a href="/cart" data-route="/cart">Cart</a>
@@ -54,12 +59,32 @@
         </form>
       </section>
 
+      <section id="fixtures">
+        <h2 id="fx-heading">Fixture heading</h2>
+        <p><label for="fx-name">Full name</label> <input id="fx-name" type="text" name="full-name" value="Jane Doe" /></p>
+        <p><button id="fx-icon" type="button" aria-label="Open settings">&#9881;</button></p>
+        <p><a id="fx-link" href="#fx-link-target">Read the terms</a></p>
+        <p id="ember1234" class="fx-generated">Generated id paragraph</p>
+        <p>
+          <button id="fx-counter" type="button">Add to cart</button>
+          <output id="fx-count">0</output>
+        </p>
+        <p>
+          <button id="fx-menu-button" type="button" aria-expanded="false" aria-controls="fx-menu">Menu</button>
+        </p>
+        <ul id="fx-menu" hidden>
+          <li><button class="fx-menu-item" id="fx-menu-profile" type="button">Profile</button></li>
+          <li><button class="fx-menu-item" id="fx-menu-billing" type="button">Billing</button></li>
+        </ul>
+      </section>
+
       <section>
         <h2>Errors</h2>
         <button id="throw-error" type="button">Throw error</button>
         <button id="reject-promise" type="button">Reject promise</button>
-        <button id="report-problem" type="button">Report a problem</button>
+        <button id="report-problem" type="button">Request a change</button>
       </section>
+      <section id="fx-tall" style="height: 1600px"><p>Tall section, so the page can scroll.</p></section>
     </main>
 
     <script type="module" src="./main.ts"></script>

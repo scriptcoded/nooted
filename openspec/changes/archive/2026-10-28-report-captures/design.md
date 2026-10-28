@@ -30,12 +30,12 @@ See proposal.md for why.
 ## Decisions
 
 ### Recording only during a capture
-- **Session lifecycle:** a capture session (`capture/session.ts`) starts rrweb `record()` when capture mode is entered, with the existing masking config. It stops it on Done or Cancel. The emitted events go into the session's own array; there is no global buffer.
-- **Marking without a demo:** the page is effectively frozen, because clicks are intercepted. On Done the session calls `record.takeFullSnapshot()` and keeps only that Meta+FullSnapshot pair, plus the events after it.
-- **With a demo:** "Record demo" calls `takeFullSnapshot()` and marks the start index. Done keeps everything from the start index, and a final `takeFullSnapshot()` is appended. That way the last frame is always a complete state for the preview and for node-id lookup.
+- **Session lifecycle:** a capture session (`capture/session.ts`) starts rrweb `record()` when Point or Record starts, with the existing masking config. It stops it on Done, Stop or Cancel. The emitted events go into the session's own array; there is no global buffer.
+- **Point:** the page is effectively frozen, because clicks are intercepted. On Done the session calls `record.takeFullSnapshot()` and keeps only that Meta+FullSnapshot pair, plus the events after it.
+- **Record:** `record()` starting emits the initial Meta+FullSnapshot, so the clip begins there. Stop appends a final `takeFullSnapshot()` and keeps everything. That way the last frame is always a complete state for the preview. Recordings have no marks, and the capture's `demo` flag is `true`.
 - **Node ids:** marks are resolved to node ids through `record.mirror.getId(el)` at Done. They are valid because the snapshot comes from the same `record()` session.
 - **Why one session:** starting and stopping `record()` per capture is cheap. Keeping one session per capture avoids any always-on listener (the reason for the change) and keeps node ids consistent within a capture.
-- **Rejected:** rrweb-snapshot's standalone `snapshot()` without `record()`. It would duplicate the masking config path, and demos need `record()` anyway.
+- **Rejected:** rrweb-snapshot's standalone `snapshot()` without `record()`. It would duplicate the masking config path, and recordings need `record()` anyway.
 
 ### Intercepting the page while marking
 - **Listeners:** capture-phase listeners on `window`, added first thing on entering marking, for `click`, `pointerdown`, `pointerup`, `mousedown`, `mouseup`, `touchend`, `submit`, `keydown` (Enter/Space on focused elements) and `contextmenu`.
@@ -45,10 +45,50 @@ See proposal.md for why.
 - **Rejected:** a full-viewport overlay with `elementFromPoint`. It blocks touch scrolling on phones.
 - **Known limitation:** apps that register their own window capture-phase listeners before ours, or that act on `pointerdown`/`touchstart`, may still react. Marking a link or button in those apps can trigger it. This is documented, and tests use the playground's ordinary handlers.
 
-### Highlights and the capture bar
-- **Highlights:** marked elements get highlight boxes drawn inside the shadow root at `getBoundingClientRect()`. Positions are recomputed on `scroll` (capture, passive), `resize`, and a `ResizeObserver` on marked elements.
-- **The bar:** pinned to the bottom, 320 px safe. It shows "Tap things to mark them · N marked · Record demo · Cancel · Done". During a demo it shows "Recording demo 0:12 · Stop", with a 60 s auto-stop.
-- **Host sizing:** in capture mode the host stays 0×0 with `pointer-events: none`. The bar and highlight layer opt in individually: the bar takes events, highlights don't. That keeps rrweb's blocked placeholder for `#nooted-host` at 0×0, so captures don't contain a box over the page. A test asserts this.
+### Interaction design (revised after the first hand check)
+The first version mixed marking and demo recording in one bar and looked like a bug reporter. The revised flow makes each capture one clear action:
+
+**Report window** (max width 440 px, full width minus 16 px at ≤ 480 px; fits 320 px):
+- **Header:** the title "Request a change".
+- **Note:** a field with the visible label "What should change?" and the placeholder "Describe the change. Point at things or record a demo to show what you mean."
+- **Toolbar,** directly under the textarea, one row: **Point** (crosshair icon + "Point", aria-label "Point at something"), **Record** (filled-circle icon + "Record", aria-label "Record a demo"), and the microphone (icon only) when supported, pushed to the right. These are secondary buttons, compact (36 px high), with icons inline.
+- **Hint:** while there are no captures, one muted line under the toolbar: "Point: tap the parts of the page you mean. Record: show it in action."
+- **Limit:** at 10 captures, Point and Record are disabled and the hint reads "Up to 10 captures per report".
+- **Captures list:** compact rows, see below.
+- **Messages:** errors and notices (send error, unknown token, style notice, dictation) sit in one message area above the actions.
+- **Actions:** Cancel (secondary) and Send (primary), right-aligned.
+- **Footer:** a hairline, then one muted small line: "Signed in as {email}". Shown only when signed in. There is no turn-off action in the UI; the app enables Nooted with `nooted.init()` and disables it with `nooted.disable()`. The URL hashes are removed too.
+- **Sign-in state:** the same header, then the intro text and the sign-in button.
+
+**Point mode:**
+- The window and floating button are hidden. A bottom bar, dark and full-width, shows the label "Tap what you mean", and "{n} selected" under it once n > 0. Its buttons are Cancel (ghost) and Done (primary).
+- **Hover** (mouse only): a 2 px dashed outline in the accent colour.
+- **Selected:** a 2 px solid accent outline, a 12 % accent tint, and a small filled check badge at the top-right corner, kept inside the viewport.
+- Escape = Cancel. Selections follow scroll and resize.
+
+**Record mode:**
+- Starts immediately: recording begins, and the window and floating button are hidden.
+- The bottom bar shows a pulsing red dot, "Recording 0:07" with a tabular-number timer, and the sub-label "Use the page". Its buttons are Cancel (ghost) and Stop (primary, red-tinted, square stop icon).
+- Stop adds the capture. Auto-stop at 60 s adds it too, and the timer turns amber in the last 10 s.
+- There is no marking and no interception, and the page is fully interactive. Escape = Cancel.
+
+**Capture rows:**
+- **Layout:** a 96×64 thumbnail at left, with rounded corners and a hairline border. To the right, exactly two single-line texts, each ellipsized (nothing wraps, down to 320 px):
+  - line 1: `[n]` in bold mono, then the kind in muted text, "Pointed at" or "Recording";
+  - line 2: the selected elements' names comma-joined, or "Whole page" for points; "m:ss · Ends on {page path}" for recordings.
+  - At far right, an icon-only × button, aria-label "Remove capture n".
+- **Point thumbnails** frame the union of the selected rects (viewport coordinates at the final frame) with 24 px padding, expanded to the thumbnail aspect ratio and clamped to the viewport. They are never upscaled beyond 1:1. Selected rects are drawn with the same selected styling, scaled.
+- **Whole-page and recording thumbnails** use cover, anchored to the top: the viewport's width fills the 96 px tile and the top of the page shows (tall phone captures no longer become a narrow strip). Recordings get a centred play glyph and the duration badge.
+- **Without the player** the row shows a neutral placeholder tile with an icon (crosshair or record) and the same text.
+- Tapping the thumbnail or the row text opens the large view.
+
+**Large view:**
+- It replaces the form, and the panel widens to `min(960px, 100vw − 32px)` while it is shown (and returns to 440 px on Back). A header has a back arrow ("Back") and the title: "[n] Pointed at {names}" (ellipsized, full text in the tooltip), "[n] Pointed at the whole page", or "[n] Recording · m:ss".
+- **Point captures with selections** are framed around the union of the selected rects with 160 px of context, at the aspect ratio of the available box, never upscaled above 1:1 (a small selection fills the box at 1:1), clamped to the viewport, with the selections drawn. A small button below toggles "Show whole page" and "Zoom to selection"; whole page fits the viewport in the box (max height about 70 vh, never more than the window height minus 260 px so the panel doesn't scroll). Point captures without selections show the whole viewport and have no toggle.
+- **Recordings** fit the whole viewport in the widened panel (same height cap). Play/Pause sits below, replays from the start, and "Ends on {path}" is at the right of that row.
+- Escape and Back return to the form, with the note and caret kept.
+
+**Visual language:** one accent colour (the existing blue), consistent 8 px radius, a 4 px spacing grid, system font stack at 14–15 px, and buttons at 36 px (toolbar) and 40 px (actions/bars) for touch. All text and controls are styled explicitly inside the shadow root, so hostile host CSS can't reach them.
 
 ### Element descriptions
 `capture/describe.ts` is DOM code. The repo has no DOM test library, so it's covered by e2e tests against playground fixtures. Fields:
@@ -69,14 +109,12 @@ Elements inside Nooted's host can't be marked.
 - **Dictation:** keeps appending, as today.
 - **Rejected:** contenteditable with chips, because of IME and caret problems on Android.
 
-### Capture cards and preview
-- **Cards:** below the textarea. Each shows the number, the marked-element names (`name || text || tag`), "demo" if it has a clip, and Remove.
-- **Thumbnails:**
-  - When the first capture is added, the runtime calls `loadReplay()`, the existing loader with its nonce.
-  - Each card mounts a `Replayer` with the capture's events, paused at the last event, scaled into a thumbnail box. It draws the marks' rects, scaled, over it.
-  - Tapping the thumbnail opens a larger view in the window, which plays the clip if there is one.
-  - If the player fails to load, cards fall back to the text summary.
-- **Reuse:** the existing scaling and CSP-violation code from `Preview.tsx` moves into `ui/CapturePreview.tsx`. `Timeline` and the focus code are deleted.
+### Capture previews (mechanics)
+- **Player loading:** `loadReplay()` runs once a capture exists. Each row mounts a `Replayer` paused at the last event, inside a fixed-size box.
+- **Framing:** the crop described in "Interaction design" is applied with a transform on the replayer wrapper. The selected rects are drawn in the same transformed space.
+- **CSP:** violations watched via `ui/style-violations.ts` show one notice.
+- **Player failure:** rows fall back to placeholder tiles.
+- **Cleanup:** replayers are destroyed on unmount.
 
 ### Payload v2
 In `packages/shared/src/report.ts`:

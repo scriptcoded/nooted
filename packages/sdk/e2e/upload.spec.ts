@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { PLAYGROUND_URL } from './env.ts'
+import { captureAfter, recordButton, stopRecording } from './capture-helpers.ts'
 import {
   captureReports,
   collectNootedLogs,
@@ -15,10 +16,10 @@ import {
 } from './helpers.ts'
 
 const host = (page: Page) => page.locator('#nooted-host')
-const fab = (page: Page) => host(page).getByRole('button', { name: 'Report a problem' })
-const dialog = (page: Page) => page.getByRole('dialog', { name: 'Report a problem' })
+const fab = (page: Page) => host(page).getByRole('button', { name: 'Request a change' })
+const dialog = (page: Page) => page.getByRole('dialog', { name: 'Request a change' })
 const signInButton = (page: Page) => host(page).getByRole('button', { name: 'Sign in to Nooted' })
-const note = (page: Page) => host(page).getByRole('textbox', { name: 'What went wrong?' })
+const note = (page: Page) => host(page).getByRole('textbox', { name: 'What should change?' })
 const send = (page: Page) => host(page).getByRole('button', { name: 'Send', exact: true })
 const badge = (page: Page) => host(page).locator('.badge')
 const storedToken = (page: Page) => page.evaluate((k) => sessionStorage.getItem(`nooted:token:${k}`), readProject().key)
@@ -64,7 +65,7 @@ test.describe('with a real token', () => {
     const payload = reports[0]!
     expect(payload.note).toBe(text)
     expect(payload.clientReportId).toMatch(/^[0-9a-f-]{36}$/)
-    expect(payload.events.length).toBeGreaterThan(0)
+    expect(payload.captures).toEqual([])
     expect(payload.url).toBe(`${PLAYGROUND_URL}/`)
     expect(payload.capturedAt).toBeGreaterThan(0)
     expect(payload.device.userAgent).toBeTruthy()
@@ -298,5 +299,79 @@ test.describe('with a real token', () => {
     await expect(badge(page)).toHaveCount(0)
     await expect.poll(async () => (await itemWithNote(text2)).length).toBe(1)
     expect(await itemWithNote(text)).toHaveLength(1)
+  })
+})
+
+test.describe('with captures', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedRealToken(page)
+  })
+
+  /** "Click [1] then [2] ...": capture 1 is a snapshot of the counter, capture 2 a demo that opens the menu. */
+  async function twoCaptures(page: Page, label = 'Clicking'): Promise<void> {
+    await start(page)
+    await captureAfter(page, `${label} `, '#fx-counter')
+    await page.keyboard.type('does nothing, and the menu ')
+    await recordButton(page).click()
+    await page.locator('#fx-menu-button').click()
+    await expect(page.locator('#fx-menu')).toBeVisible()
+    await page.waitForTimeout(300)
+    await stopRecording(page)
+    await expect(note(page)).toBeFocused()
+    await page.keyboard.type('is too wide')
+  }
+
+  test('two captures (one a demo) reach the server: 201 and tokens match the captures', async ({ page }) => {
+    const reports = await captureReports(page)
+    const response = page.waitForResponse((r) => r.url().endsWith('/api/sdk/reports') && r.request().method() === 'POST')
+    const label = unique('two captures')
+    await twoCaptures(page, label)
+    await send(page).click()
+    expect((await response).status()).toBe(201)
+    await expect(dialog(page)).toHaveCount(0)
+
+    const payload = reports[0]!
+    expect(payload.note).toBe(`${label} [1] does nothing, and the menu [2] is too wide`)
+    expect(payload.captures.map((c) => [c.n, c.demo])).toEqual([
+      [1, false],
+      [2, true],
+    ])
+    const tokens = [...payload.note.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1]))
+    expect(tokens).toEqual(payload.captures.map((c) => c.n))
+    expect(payload.captures[0]!.marks[0]).toMatchObject({ tag: 'button', name: 'Add to cart' })
+    expect(payload.captures[1]!.marks).toEqual([])
+    await expect.poll(async () => (await itemWithNote(payload.note)).length).toBe(1)
+  })
+
+  test('a 401 re-send after sign-in keeps the client report id and the captures', async ({ page }) => {
+    const requests = await interceptReports(page, (route, n) => (n === 1 ? fulfillStatus(route, 401) : route.continue()))
+    await twoCaptures(page)
+    await send(page).click()
+    await expect(signInButton(page)).toBeVisible()
+    await signInThroughPopup(page, 'admin@example.com')
+    await expect(note(page)).toHaveValue('Clicking [1] does nothing, and the menu [2] is too wide', { timeout: 15_000 })
+    await expect(host(page).locator('[data-nooted-card]')).toHaveCount(2)
+    await send(page).click()
+    await expect(dialog(page)).toHaveCount(0)
+    expect(requests).toHaveLength(2)
+    expect(requests[1]!.payload.clientReportId).toBe(requests[0]!.payload.clientReportId)
+    expect(requests[1]!.payload.captures.map((c) => c.n)).toEqual([1, 2])
+    expect(requests[1]!.payload.note).toBe(requests[0]!.payload.note)
+  })
+
+  test('offline: a report with captures is queued and delivered once online', async ({ page, context }) => {
+    const reports = await captureReports(page)
+    const label = unique('offline captures')
+    await twoCaptures(page, label)
+    await context.setOffline(true)
+    await send(page).click()
+    await expect(host(page).getByText('Saved — it will be sent automatically')).toBeVisible()
+    await expect(badge(page)).toHaveText('1')
+    await context.setOffline(false)
+    await expect(badge(page)).toHaveCount(0)
+    await expect.poll(() => reports.length).toBe(1)
+    expect(reports[0]!.captures).toHaveLength(2)
+    expect(reports[0]!.note).toContain(label)
+    await expect.poll(async () => (await itemWithNote(reports[0]!.note)).length).toBe(1)
   })
 })

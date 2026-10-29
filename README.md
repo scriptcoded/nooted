@@ -40,6 +40,8 @@ Both Dex services publish port 4856, so stop the dev one first if it is running 
 
 Data lives in the named volume `nooted-data`, mounted at `/data`.
 
+The image declares a Docker health check, so `docker compose ps` shows the server as `healthy` once `/api/health` answers. To run it on Kubernetes, see [docs/deploy.md](docs/deploy.md).
+
 ## Configuration
 
 Set in `apps/server/.env` for `pnpm dev`, or in `docker-compose.yml` for the container. The server reads these at startup and exits with a message naming every invalid or missing variable.

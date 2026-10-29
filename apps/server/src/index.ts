@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync } from 'node:fs'
+import type { Server } from 'node:http'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
@@ -14,6 +15,7 @@ import { createKysely, openDatabase } from './db/node-sqlite-adapter.ts'
 import type { DB } from './db/schema.ts'
 import { cleanupOauth } from './oauth/cleanup.ts'
 import { createCaptureRenderer } from './render/renderer.ts'
+import { createShutdown } from './shutdown.ts'
 
 const config = loadConfig()
 
@@ -39,7 +41,7 @@ const webDistDir =
     : undefined)
 
 const renderer = createCaptureRenderer({ config, blobs })
-// playwright-core closes its browser on SIGINT/SIGTERM itself; this covers a normal exit.
+// Signals are handled by the shutdown below (Playwright's own handlers are off); this covers a normal exit.
 process.on('exit', () => void renderer.close())
 
 const app = new Hono().route('/', createApp({ config, db, blobs, oidc, renderer }))
@@ -55,6 +57,15 @@ if (webDistDir) {
   app.get('*', frameHeaders, (c, next) => (serverOwned(c.req.path) ? c.notFound() : next()), files, index)
 }
 
-serve({ fetch: app.fetch, port: config.port }, (info) => {
+const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
   console.log(`nooted server listening on http://localhost:${info.port}`)
 })
+
+const shutdown = createShutdown({
+  server: server as Server, // plain HTTP, so never the HTTP/2 variant of ServerType
+  closers: [() => renderer.close(), () => db.destroy()],
+  exit: process.exit,
+  log: (line) => console.log(line),
+})
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))

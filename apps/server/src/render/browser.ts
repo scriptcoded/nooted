@@ -59,6 +59,10 @@ export function createBrowserManager(options: BrowserManagerOptions): BrowserMan
       try {
         const launched = await launch({
           headless: true,
+          // The server's shutdown owns signals; Playwright's SIGINT handler would process.exit(130) mid-drain.
+          handleSIGINT: false,
+          handleSIGTERM: false,
+          handleSIGHUP: false,
           ...(options.chromiumPath ? { executablePath: options.chromiumPath } : {}),
         })
         launched.on('disconnected', () => {

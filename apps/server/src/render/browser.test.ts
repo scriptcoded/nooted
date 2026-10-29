@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import type { Browser } from 'playwright-core'
+import type { Browser, LaunchOptions } from 'playwright-core'
 import { createBrowserManager } from './browser.ts'
 import { RenderError } from './errors.ts'
 import { skipUnlessChromium } from './test-support.ts'
@@ -18,6 +18,19 @@ describe('browser manager', () => {
     assert.equal(manager.isAvailable(), false)
     await assert.rejects(manager.withBrowser(async () => 1), (e: unknown) => e instanceof RenderError && e.code === 'unavailable')
     assert.equal(launches, 0)
+  })
+
+  it('launches with Playwright signal handling off so the server shutdown owns it', async () => {
+    let options: LaunchOptions | undefined
+    const manager = createBrowserManager({
+      mode: 'auto',
+      launch: async (launchOptions) => ((options = launchOptions), fakeBrowser()),
+    })
+    await manager.withBrowser(async () => 1)
+    assert.equal(options?.handleSIGINT, false)
+    assert.equal(options?.handleSIGTERM, false)
+    assert.equal(options?.handleSIGHUP, false)
+    await manager.close()
   })
 
   it('reports unavailable for a bad CHROMIUM_PATH, logs once, and retries after the cool-down', async () => {

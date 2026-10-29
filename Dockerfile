@@ -26,18 +26,36 @@ ENV NODE_ENV=production \
   DATA_DIR=/data \
   WEB_DIST_DIR=/app/apps/web/dist \
   SDK_DIST_DIR=/app/packages/sdk/dist \
-  PORT=3000
+  PORT=3000 \
+  XDG_CACHE_HOME=/tmp/.cache
+
+# Chromium (headless shell) and its system libraries and fonts, so the server can draw captures as images for agents.
+# Installed as root into a shared path the node user can read, before the app is copied so code-only changes keep this
+# layer cached. PLAYWRIGHT_VERSION must match the server's playwright-core; the build checks it below.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ARG PLAYWRIGHT_VERSION=1.64.1
+RUN npx --yes playwright-core@$PLAYWRIGHT_VERSION install --with-deps chromium-headless-shell \
+  && rm -rf /var/lib/apt/lists/* /root/.npm \
+  && chmod -R a+rX /ms-playwright
 
 COPY --from=build /app /app
-# Chromium (headless shell) and its system libraries and fonts, so the server can draw captures as images for agents.
-# Installed as root into a shared path the node user can read; playwright-core is the version pinned by the server.
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN node apps/server/node_modules/playwright-core/cli.js install --with-deps chromium-headless-shell \
-  && rm -rf /var/lib/apt/lists/* \
-  && chmod -R a+rX /ms-playwright
+# Fail the build if the server's playwright-core moved on without PLAYWRIGHT_VERSION.
+RUN installed=$(node -p "require('/app/apps/server/node_modules/playwright-core/package.json').version") \
+  && [ "$installed" = "$PLAYWRIGHT_VERSION" ] || { echo "playwright-core is $installed, PLAYWRIGHT_VERSION is $PLAYWRIGHT_VERSION" >&2; exit 1; }
 RUN mkdir /data && chown node:node /data
 VOLUME /data
 EXPOSE 3000
+
+# Set late so a new revision does not invalidate the Chromium layer.
+ARG REVISION
+ARG VERSION
+ARG SOURCE
+LABEL org.opencontainers.image.revision=$REVISION \
+  org.opencontainers.image.version=$VERSION \
+  org.opencontainers.image.source=$SOURCE
+
+# The slim image has no curl or wget; Kubernetes ignores this and uses its own probes.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 
 USER node
 WORKDIR /app/apps/server

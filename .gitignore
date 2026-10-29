@@ -2,7 +2,6 @@ node_modules
 dist
 .env
 *.local
-routeTree.gen.ts
 
 # Local data (SQLite database and uploaded blobs)
 /data

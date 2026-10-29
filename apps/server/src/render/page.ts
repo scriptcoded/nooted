@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { BrowserContext, Page } from 'playwright-core'
 import type { Capture } from '@nooted/shared'
+import { checkpointTimes, seekSteps } from '@nooted/shared/seek'
 import type { BrowserManager } from './browser.ts'
 import { RenderError } from './errors.ts'
 import { restrictNetwork } from './network.ts'
@@ -135,23 +136,6 @@ async function openShell(page: Page, replayJs: string, events: unknown[]): Promi
   }, events)
 }
 
-/**
- * Times (ms from the first event) of the later full snapshots a recording takes (its checkpoints). rrweb
- * applies a checkpoint wrongly when one seek fast-forwards across both it and earlier mutations (attributes
- * changed before it come back stale), so seeks past a checkpoint hop to just before it first.
- */
-function checkpointTimes(events: unknown[]): number[] {
-  const list = events as Array<{ type?: number; timestamp?: number }>
-  const start = list[0]?.timestamp
-  if (typeof start !== 'number') return []
-  const times: number[] = []
-  list.forEach((event, i) => {
-    // A checkpoint is a Meta event (4) followed by a full snapshot (2); the first pair is the recording's start.
-    if (event.type === 4 && i > 0 && list[i + 1]?.type === 2 && typeof event.timestamp === 'number') times.push(event.timestamp - start)
-  })
-  return times
-}
-
 function createSession(page: Page, settleMs: number, duration: number, checkpoints: number[]): RenderSession {
   const seekOnce = (t: number | undefined) =>
     page.evaluate(
@@ -184,18 +168,8 @@ function createSession(page: Page, settleMs: number, duration: number, checkpoin
   return {
     duration,
     async seek(t) {
-      const target = Math.min(duration, Math.max(10, t ?? duration))
-      // Hop to just before each checkpoint at or before the target (see checkpointTimes), skipping any
-      // that a hop already passed.
-      let at = 0
-      for (const checkpoint of checkpoints) {
-        const before = checkpoint - 1
-        if (checkpoint <= target && before > at && before >= 10) {
-          await seekOnce(before)
-          at = before
-        }
-      }
-      await seekOnce(t)
+      // Hop to just before each checkpoint at or before the target (see checkpointTimes), then the target.
+      for (const step of seekSteps(checkpoints, t ?? duration, duration)) await seekOnce(step)
     },
     clean: async (options) => {
       await page.evaluate(() => {

@@ -10,6 +10,8 @@ export interface ReplayHandle {
   play(timeOffsetMs?: number): void
   /** Pauses, optionally seeking to `timeOffsetMs` first. */
   pause(timeOffsetMs?: number): void
+  /** Pauses at `timeOffsetMs`, hopping across the recording's checkpoints so earlier changes are not shown stale (a plain `pause` can). */
+  seek(timeOffsetMs: number): void
   /** Current position in ms from the first event. */
   getCurrentTime(): number
   /** Total span of the events in ms. */

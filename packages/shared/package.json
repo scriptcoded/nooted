@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./frame": "./src/frame.ts",
+    "./seek": "./src/seek.ts",
     "./note": "./src/note.ts",
     "./status": "./src/status.ts",
     "./ua": "./src/ua.ts"

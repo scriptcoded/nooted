@@ -6,6 +6,7 @@ import { Box, Skeleton } from '@mui/material'
 import BrokenImageOutlinedIcon from '@mui/icons-material/BrokenImageOutlined'
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
 import { coverTopLayout, frameLayout, type Layout } from '@nooted/shared/frame'
+import { checkpointTimes, seekSteps } from '@nooted/shared/seek'
 import { formatClock } from '../format.ts'
 import { loadReplayer } from './load.ts'
 import type { Replayer } from '@rrweb/replay'
@@ -34,6 +35,12 @@ interface CapturePlayerProps {
   zoomed?: boolean
   onPlayingChange?: (playing: boolean) => void
   ref?: Ref<PlayerHandle>
+}
+
+/** Pauses on the recording's last frame. A plain pause there shows earlier changes stale when a checkpoint is crossed (see seekSteps). */
+function seekToEnd(replayer: Replayer, events: unknown[]) {
+  const duration = replayer.getMetaData().totalTime
+  for (const step of seekSteps(checkpointTimes(events), duration, duration)) replayer.pause(step)
 }
 
 // Padding around the selection in thumbnails (bigger than the SDK's, as these tiles are bigger) and in the large view.
@@ -143,7 +150,7 @@ export function CapturePlayer({ capture, events, failed, large, zoomed = true, o
         replayer.on('finish', () => {
           if (!playingRef.current) return
           // Back to the final frame, ready to play again.
-          replayer?.pause(replayer.getMetaData().totalTime)
+          if (replayer) seekToEnd(replayer, events)
           setPlay(false)
         })
         placeRef.current = place
@@ -153,7 +160,7 @@ export function CapturePlayer({ capture, events, failed, large, zoomed = true, o
           observer.observe(frameEl)
         }
         // The last frame is what the capture is.
-        replayer.pause(replayer.getMetaData().totalTime)
+        seekToEnd(replayer, events)
       } catch (error) {
         console.warn('capture player failed', error)
         try {

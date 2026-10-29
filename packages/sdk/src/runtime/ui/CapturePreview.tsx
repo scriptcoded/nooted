@@ -119,12 +119,12 @@ export function CapturePreview({ capture, api, large, onStyleViolation, onFail }
         observer.observe(frame.current!)
       }
       // Show the last frame, which is what the capture is.
-      replayer.pause(replayer.duration)
+      replayer.seek(replayer.duration)
       if (large && capture.demo) {
         timer = setInterval(() => {
           if (!replayer || !playingRef.current) return
           if (replayer.getCurrentTime() >= replayer.duration - 20) {
-            replayer.pause(replayer.duration)
+            replayer.seek(replayer.duration)
             setPlay(false)
           }
         }, POLL_MS)

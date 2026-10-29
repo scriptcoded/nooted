@@ -1,5 +1,6 @@
 import { Replayer } from '@rrweb/replay'
 import replayCss from '@rrweb/replay/dist/style.css?inline'
+import { checkpointTimes, seekSteps } from '@nooted/shared/seek'
 import type { ReplayApi, ReplayHandle, ReplayOptions } from './types.ts'
 
 // Loaded on demand by the runtime. Registers the replay API on window.nooted.p.
@@ -12,11 +13,16 @@ function createReplayer(root: HTMLElement, events: unknown[], options: ReplayOpt
     triggerFocus: false,
     speed: options.speed ?? 1,
   })
+  const duration = replayer.getMetaData().totalTime
+  const checkpoints = checkpointTimes(events)
   return {
     play: (t) => replayer.play(t),
     pause: (t) => replayer.pause(t),
+    seek: (t) => {
+      for (const step of seekSteps(checkpoints, t, duration)) replayer.pause(step)
+    },
     getCurrentTime: () => replayer.getCurrentTime(),
-    duration: replayer.getMetaData().totalTime,
+    duration,
     iframe: replayer.iframe,
     wrapper: replayer.wrapper,
     nodeRect: (id) => {

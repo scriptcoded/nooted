@@ -129,6 +129,24 @@ test.describe('the item page', () => {
     await expect(card(page, 3).getByTestId('capture-mark')).toHaveCount(0)
   })
 
+  test('the recording replays to its last frame with the menu open, in the thumbnail and the large view', async () => {
+    // The recording ends with the menu open. rrweb's seek straight to the end brings earlier attribute
+    // changes back stale when a checkpoint (written when the recording stops) is crossed in the same jump.
+    const menuOpen = (frame: ReturnType<Page['frameLocator']>) =>
+      expect(frame.locator('#fx-menu')).not.toHaveAttribute('hidden', /.*/)
+    const thumb = card(page, 2).getByTestId('capture-thumb')
+    await expect(thumb).toHaveAttribute('data-ready', 'true', { timeout: 20_000 })
+    await menuOpen(thumb.frameLocator('iframe'))
+    await expect(thumb.frameLocator('iframe').getByText('Profile')).toBeVisible()
+    await card(page, 2).getByTestId('capture-open').click()
+    const dlg = page.getByRole('dialog')
+    const large = dlg.getByTestId('capture-large')
+    await expect(large).toHaveAttribute('data-ready', 'true', { timeout: 20_000 })
+    await menuOpen(large.frameLocator('iframe'))
+    await expect(large.frameLocator('iframe').getByText('Billing')).toBeVisible()
+    await dlg.getByRole('button', { name: 'Close' }).click()
+  })
+
   test('note references scroll to and highlight their capture', async () => {
     await page.getByTestId('feedback-note').getByTestId('note-ref').nth(1).click()
     await expect(card(page, 2)).toHaveAttribute('data-highlighted', 'true')

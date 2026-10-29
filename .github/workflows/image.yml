@@ -20,6 +20,9 @@ jobs:
       - run: npm install -g corepack && corepack enable
 
       - run: pnpm install --frozen-lockfile
+      # The capture-rendering tests draw with Chromium and the built replay bundle
+      - run: pnpm --filter @nooted/server exec playwright-core install --with-deps chromium-headless-shell
+      - run: pnpm --filter @nooted/sdk build
       - run: pnpm typecheck
       - run: pnpm -r test
 

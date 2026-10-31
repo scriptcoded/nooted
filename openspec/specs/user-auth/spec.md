@@ -55,11 +55,19 @@ The system SHALL keep sessions server-side and identify them with an opaque, htt
 - **THEN** the session is rejected and API requests return 401
 
 ### Requirement: Sign-out
-The system SHALL let a signed-in user end their session, deleting it server-side and clearing the cookie.
+The system SHALL let a signed-in user end their session, deleting it server-side and clearing the cookie, and SHALL then send the browser to the identity provider's end-session endpoint so the provider session ends too.
 
 #### Scenario: Sign out
 - **WHEN** a signed-in user posts to `/auth/logout`
 - **THEN** the session is deleted and later requests with the old cookie return 401
+
+#### Scenario: Provider session ends too
+- **WHEN** a signed-in user signs out and the provider advertises an `end_session_endpoint`
+- **THEN** the browser is sent there with `post_logout_redirect_uri` set to `${PUBLIC_URL}/signed-out`, a page that does not start a new login by itself
+
+#### Scenario: Provider without end-session support
+- **WHEN** the provider has no `end_session_endpoint` or cannot be reached
+- **THEN** the browser goes straight to `/signed-out`
 
 ### Requirement: Authenticated console API
 The system SHALL reject console API requests without a valid session with 401, and SHALL expose the current user's id, email, name and admin flag.

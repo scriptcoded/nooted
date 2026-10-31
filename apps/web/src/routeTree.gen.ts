@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as SignedOutRouteImport } from './routes/signed-out'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as ConnectRequestIdRouteImport } from './routes/connect.$requestId'
 import { Route as AuthedProjectsProjectIdRouteImport } from './routes/_authed/projects/$projectId'
@@ -20,6 +21,11 @@ import { Route as AuthedProjectsProjectIdFeedbackItemIdRouteImport } from './rou
 
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignedOutRoute = SignedOutRouteImport.update({
+  id: '/signed-out',
+  path: '/signed-out',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedIndexRoute = AuthedIndexRouteImport.update({
@@ -63,6 +69,7 @@ const AuthedProjectsProjectIdFeedbackItemIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
+  '/signed-out': typeof SignedOutRoute
   '/connect/$requestId': typeof ConnectRequestIdRoute
   '/projects/$projectId': typeof AuthedProjectsProjectIdRouteWithChildren
   '/settings/agents': typeof AuthedSettingsAgentsRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/feedback/$itemId': typeof AuthedProjectsProjectIdFeedbackItemIdRoute
 }
 export interface FileRoutesByTo {
+  '/signed-out': typeof SignedOutRoute
   '/connect/$requestId': typeof ConnectRequestIdRoute
   '/': typeof AuthedIndexRoute
   '/settings/agents': typeof AuthedSettingsAgentsRoute
@@ -81,6 +89,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteWithChildren
+  '/signed-out': typeof SignedOutRoute
   '/connect/$requestId': typeof ConnectRequestIdRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/projects/$projectId': typeof AuthedProjectsProjectIdRouteWithChildren
@@ -93,6 +102,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/signed-out'
     | '/connect/$requestId'
     | '/projects/$projectId'
     | '/settings/agents'
@@ -101,6 +111,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/feedback/$itemId'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/signed-out'
     | '/connect/$requestId'
     | '/'
     | '/settings/agents'
@@ -110,6 +121,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_authed'
+    | '/signed-out'
     | '/connect/$requestId'
     | '/_authed/'
     | '/_authed/projects/$projectId'
@@ -121,6 +133,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
+  SignedOutRoute: typeof SignedOutRoute
   ConnectRequestIdRoute: typeof ConnectRequestIdRoute
 }
 
@@ -131,6 +144,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signed-out': {
+      id: '/signed-out'
+      path: '/signed-out'
+      fullPath: '/signed-out'
+      preLoaderRoute: typeof SignedOutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/': {
@@ -221,6 +241,7 @@ const AuthedRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
+  SignedOutRoute: SignedOutRoute,
   ConnectRequestIdRoute: ConnectRequestIdRoute,
 }
 export const routeTree = rootRouteImport

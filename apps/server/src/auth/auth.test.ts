@@ -300,10 +300,30 @@ describe('sessions and API', () => {
     const t = await createTestApp()
     const { session } = await signIn(t)
     const res = await t.app.request('/auth/logout', { method: 'POST', headers: withSession(session) })
-    assert.equal(res.status, 204)
+    assert.equal(res.status, 200)
     assert.match(setCookieHeader(res, 'nooted_session'), /Max-Age=0|Expires=/i)
     assert.equal((await t.db.selectFrom('sessions').selectAll().execute()).length, 0)
     assert.equal((await me(t, withSession(session))).status, 401)
+    await t.db.destroy()
+  })
+
+  it('logout sends the browser to the IdP end-session endpoint, which returns to /signed-out', async () => {
+    const t = await createTestApp()
+    const { session } = await signIn(t)
+    const res = await t.app.request('/auth/logout', { method: 'POST', headers: withSession(session) })
+    const { redirectTo } = (await res.json()) as { redirectTo: string }
+    const url = new URL(redirectTo)
+    assert.equal(url.origin + url.pathname, 'http://oidc.test/end-session')
+    assert.equal(url.searchParams.get('post_logout_redirect_uri'), `${t.config.publicUrl}/signed-out`)
+    await t.db.destroy()
+  })
+
+  it('logout falls back to /signed-out when the IdP has no end-session endpoint', async () => {
+    const t = await createTestApp()
+    t.oidc.endSessionUrl = () => undefined
+    const { session } = await signIn(t)
+    const res = await t.app.request('/auth/logout', { method: 'POST', headers: withSession(session) })
+    assert.deepEqual(await res.json(), { redirectTo: `${t.config.publicUrl}/signed-out` })
     await t.db.destroy()
   })
 })

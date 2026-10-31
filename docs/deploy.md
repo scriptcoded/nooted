@@ -63,6 +63,12 @@ Register this redirect URI with your provider:
 ${PUBLIC_URL}/auth/callback
 ```
 
+Sign-out also ends the provider session through its `end_session_endpoint`, if it advertises one. Register this as an allowed post-logout redirect URI so the provider sends people back to Nooted afterwards:
+
+```
+${PUBLIC_URL}/signed-out
+```
+
 The pod must be able to reach the issuer URL over the network at sign-in time.
 
 ## Storage and replicas

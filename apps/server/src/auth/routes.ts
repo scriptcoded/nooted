@@ -127,6 +127,9 @@ export function createAuthRoutes(deps: AppDeps) {
     })
     .post('/logout', async (c) => {
       await destroySession(c, deps)
-      return c.body(null, 204)
+      // Without ending the IdP session too, the next /auth/login signs the user straight back in.
+      const signedOut = `${config.publicUrl}/signed-out`
+      const redirectTo = (await oidc.endSessionUrl({ postLogoutRedirectUri: signedOut })) ?? signedOut
+      return c.json({ redirectTo })
     })
 }

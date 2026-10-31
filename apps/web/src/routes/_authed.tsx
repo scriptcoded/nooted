@@ -20,9 +20,11 @@ function AuthedLayout() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
 
   const signOut = async () => {
-    await fetch('/auth/logout', { method: 'POST' })
+    const res = await fetch('/auth/logout', { method: 'POST' })
     queryClient.clear()
-    window.location.href = '/auth/login'
+    // Usually the IdP's end-session page, which then returns to /signed-out.
+    const { redirectTo } = res.ok ? ((await res.json()) as { redirectTo: string }) : { redirectTo: '/signed-out' }
+    window.location.href = redirectTo
   }
 
   return (

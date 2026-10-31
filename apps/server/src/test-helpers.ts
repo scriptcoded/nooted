@@ -30,6 +30,11 @@ export function createFakeOidc(identity?: Partial<OidcIdentity>): FakeOidc {
     },
     // Reads `fake.identity` at call time so tests can change who signs in.
     exchange: async () => ({ ...fake.identity }),
+    endSessionUrl: ({ postLogoutRedirectUri }) => {
+      const url = new URL('http://oidc.test/end-session')
+      url.search = new URLSearchParams({ client_id: 'nooted', post_logout_redirect_uri: postLogoutRedirectUri }).toString()
+      return url.toString()
+    },
   }
   return fake
 }

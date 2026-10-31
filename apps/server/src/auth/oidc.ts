@@ -22,6 +22,8 @@ export interface OidcProvider {
     codeVerifier: string
     redirectUri: string
   }): Promise<OidcIdentity>
+  /** The provider's end-session URL, or undefined when it has none (or can't be reached). */
+  endSessionUrl(params: { postLogoutRedirectUri: string }): Promise<string | undefined> | string | undefined
 }
 
 export type OidcSettings = {
@@ -81,6 +83,13 @@ export function createOidcProvider(settings: OidcSettings): OidcProvider {
         emailVerified: claims.email_verified === true,
         name,
       }
+    },
+    async endSessionUrl({ postLogoutRedirectUri }) {
+      // Signing out of Nooted must not depend on the IdP being up.
+      const configuration = await getConfiguration().catch(() => undefined)
+      if (!configuration?.serverMetadata().end_session_endpoint) return undefined
+      // buildEndSessionUrl adds client_id, which identifies us in place of an id_token_hint.
+      return client.buildEndSessionUrl(configuration, { post_logout_redirect_uri: postLogoutRedirectUri }).href
     },
   }
 }

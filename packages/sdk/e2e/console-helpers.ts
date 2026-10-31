@@ -9,8 +9,8 @@ import { ADMIN_EMAIL } from './env.ts'
 import { enableNooted, debugNooted, readProject, seedRealToken, waitForRuntime } from './helpers.ts'
 
 /**
- * Sends one real report through the SDK UI: "The [1] button should confirm, see [2] and [3]", with a Point
- * capture of #fx-counter, a recording that opens the menu, and a whole-page Point capture. Returns the item's id.
+ * Sends one real report through the SDK UI: "The [1] button should confirm, see [2] and [3]", with a screenshot
+ * capture of #fx-counter, a recording that opens the menu, and a whole-page screenshot capture. Returns the item's id.
  */
 export async function sendRealReport(page: Page): Promise<string> {
   await debugNooted(page)

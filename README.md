@@ -69,8 +69,8 @@ Project members review reports in the console (`/projects/<id>`). Captures are v
 
 - **Feedback list.** One row per report with its note, page, reporter, status and a Captures column with the number of captures (a dash for reports sent before captures existed). Note references such as `[1]` are drawn as small chips. The list never loads capture data.
 - **Item page.** Click a row. The note comes first with its `[n]` chips; click one to scroll to that capture and highlight it. Next to it (below it on narrow screens) are the reporter, page, time, device and viewport, and release.
-- **Captures.** Each capture is a card with a thumbnail. A Point capture lists the elements the reporter pointed at (name, role, text) and their CSS selector with a button to copy it. The thumbnail frames the selection with the marks drawn on it; a capture without marks is the whole page. A recording shows its length and a play glyph.
-- **Large view.** Click a thumbnail to open it larger. Point captures can toggle between the framed selection and the whole page. Recordings play inside the dialog (Play, Pause).
+- **Captures.** Each capture is a card with a thumbnail. A screenshot capture lists the elements the reporter pointed at (name, role, text) and their CSS selector with a button to copy it. The thumbnail frames the selection with the marks drawn on it; a capture without marks is the whole page. A recording shows its length and a play glyph.
+- **Large view.** Click a thumbnail to open it larger. Screenshot captures can toggle between the framed selection and the whole page. Recordings play inside the dialog (Play, Pause).
 - **Older reports.** Reports sent before captures existed show a notice instead of captures.
 
 ## Agents (MCP)
@@ -190,12 +190,16 @@ Enabling only shows the floating button and turns on the triggers. Nooted record
 
 The floating button is named **Request a change**. It opens a window with a note field, "What should change?". Describe the change in your own words, and add captures to show what you mean:
 
-- **Point** hides the window and shows a bar. Tap or click the parts of the page you mean; tap a selected part again to deselect it. The bar counts them ("2 selected"). While pointing, taps and clicks don't reach the app, so buttons and links don't react. Scrolling still works. Choose **Done** to add the capture, or **Cancel** (or press Escape) to discard it. Choosing Done with nothing selected captures the whole page.
+- **Screenshot** hides the window and shows a bar. Tap or click the parts of the page you mean; tap a selected part again to deselect it. The bar counts them ("2 selected"). While taking a screenshot, taps and clicks don't reach the app, so buttons and links don't react. Scrolling still works. Choose **Done** to add the capture, or **Cancel** (or press Escape) to discard it. Choosing Done with nothing selected captures the whole page.
 - **Record** starts recording at once and hides the window. Use the page normally, for example to open a menu. Choose **Stop** to add the recording (it stops by itself after 60 seconds; the timer turns amber in the last 10). **Cancel** or Escape discards it.
+
+- **Minimize.** Tap or click outside the window (on the dimmed area) to minimize it into a round blue bubble, so you can go to another page and show more. The page works normally meanwhile. Drag the bubble anywhere; tap it to continue with the same note, captures and cursor position. The keyboard shortcut, shake and `nooted.open()` also bring the window back instead of starting a new report, and the bubble shows even if you passed `button: false`. Cancel in the restored window discards the draft as usual.
+
+The draft is kept in memory only. It survives navigation inside the app (client-side routing), but is lost on a reload or a full page navigation, such as following a plain link that reloads the page.
 
 Each capture puts a token such as `[1]` at your cursor in the note, so you can say "make [1] bigger". You can also type tokens by hand, but a note that mentions a capture that doesn't exist can't be sent.
 
-Captures appear as rows with a thumbnail, "Pointed at" plus the selected elements' names (or "Whole page"), or "Recording" with its length and the page it ends on. Select a row to see the capture large: point captures zoom in on what you selected (**Show whole page** toggles), and recordings can be played back. The **×** on a row removes the capture and its tokens. A report holds up to 10 captures. Errors are recorded only while a recording runs.
+Captures appear as rows with a thumbnail, "Screenshot" plus the selected elements' names (or "Whole page"), or "Recording" with its length and the page it ends on. Select a row to see the capture large: screenshots zoom in on what you selected (**Show whole page** toggles), and recordings can be played back. The **×** on a row removes the capture and its tokens. A report holds up to 10 captures. Errors are recorded only while a recording runs.
 
 **Known limitation:** some apps react to `pointerdown` or `touchstart` before Nooted can intercept them, so pointing at one of their elements may still trigger it. Use **Record** for those, or point at a nearby element instead.
 

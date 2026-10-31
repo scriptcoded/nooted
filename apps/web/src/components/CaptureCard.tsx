@@ -91,7 +91,7 @@ export function CaptureCard({ projectId, itemId, capture, highlighted, onCopy }:
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
           <Chip label={capture.n} size="small" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            {capture.demo ? `Recording · ${formatClock(capture.durationMs)}` : 'Pointed at'}
+            {capture.demo ? `Recording · ${formatClock(capture.durationMs)}` : 'Screenshot'}
           </Typography>
         </Stack>
         <Typography variant="caption" color="text.secondary" component="div" sx={{ overflowWrap: 'anywhere', mb: 1.5 }}>

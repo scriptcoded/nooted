@@ -14,8 +14,10 @@ export function App({ shakeThreshold }: { shakeThreshold: () => number | undefin
   }, [state.open])
   return (
     <>
-      {state.button && !capturing && !state.open && <FloatingButton pending={state.pending} shakeThreshold={shakeThreshold} />}
-      {state.open && !capturing && <ReportWindow />}
+      {!capturing && (state.open ? state.minimized : state.button) && (
+        <FloatingButton pending={state.pending} shakeThreshold={shakeThreshold} minimized={state.open && state.minimized} />
+      )}
+      {state.open && !state.minimized && !capturing && <ReportWindow />}
       {capturing && <CaptureLayer />}
     </>
   )

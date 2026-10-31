@@ -24,8 +24,8 @@ interface CaptureDialogProps {
 
 export function captureTitle(capture: DialogCapture): string {
   if (capture.demo) return `Recording · ${formatClock(capture.durationMs)}`
-  if (capture.marks.length === 0) return 'Pointed at the whole page'
-  return `Pointed at ${capture.marks.map((m) => m.name || m.text || m.tag).join(', ')}`
+  if (capture.marks.length === 0) return 'Screenshot of the whole page'
+  return `Screenshot of ${capture.marks.map((m) => m.name || m.text || m.tag).join(', ')}`
 }
 
 export function CaptureDialog({ projectId, itemId, capture, open, onClose }: CaptureDialogProps) {

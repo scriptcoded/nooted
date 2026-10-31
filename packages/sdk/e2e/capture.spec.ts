@@ -23,7 +23,7 @@ import { captureReports, seedRealToken } from './helpers.ts'
 const count = (page: import('@playwright/test').Page) => page.locator('#fx-count').textContent()
 const opened = (page: import('@playwright/test').Page) => page.evaluate(() => document.documentElement.dataset.nootedOpened)
 
-test.describe('Point', () => {
+test.describe('Screenshot', () => {
   test('marking a button does not run its handler, and marks toggle', async ({ page }) => {
     await setup(page)
     await beginPoint(page)
@@ -167,7 +167,7 @@ test.describe('captures', () => {
 
     // Back in the window with the capture listed.
     await expect(dialog(page)).toBeVisible()
-    await expect(host(page).locator('[data-nooted-card="1"]')).toContainText('[1]Pointed atAdd to cart, Full name')
+    await expect(host(page).locator('[data-nooted-card="1"]')).toContainText('[1]ScreenshotAdd to cart, Full name')
 
     const [capture, ...rest] = await draftCaptures(page)
     expect(rest).toEqual([])
@@ -185,7 +185,7 @@ test.describe('captures', () => {
     const sized = snapshotNodes(capture!.events, (n) => n.attributes?.rr_width !== undefined)
     expect(sized.some((n) => n.attributes?.rr_width === '0px' && n.attributes?.rr_height === '0px')).toBe(true)
     const json = JSON.stringify(capture!.events)
-    for (const text of ['Tap what you mean', 'Point at something', 'Record a demo', 'nooted-host']) expect(json).not.toContain(text)
+    for (const text of ['Tap what you mean', 'Take a screenshot', 'Record a demo', 'nooted-host']) expect(json).not.toContain(text)
     expect(json).not.toContain('data-nooted-highlight')
   })
 
@@ -364,7 +364,7 @@ test.describe('Record', () => {
   })
 })
 
-test('Point and Record are not offered before the window is open', async ({ page }) => {
+test('Screenshot and Record are not offered before the window is open', async ({ page }) => {
   await setup(page)
   await expect(pointButton(page)).toHaveCount(0)
   await expect(recordButton(page)).toHaveCount(0)

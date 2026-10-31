@@ -9,6 +9,7 @@ import { MAX_CAPTURES } from '../capture/tokens.ts'
 import { unknownTokens } from '@nooted/shared/note'
 import { loadReplay } from '../preview/load-replay.ts'
 import { close } from '../trigger.ts'
+import { requestFabFocus } from './focus-return.ts'
 import { sendReport } from '../upload/send.ts'
 import { useAppState } from './state-hook.ts'
 import { useDictation } from './dictation.ts'
@@ -183,10 +184,29 @@ export function ReportWindow() {
     const field = textarea.current
     return field ? { start: field.selectionStart, end: field.selectionEnd } : undefined
   }
+  // Tapping the dimmed area minimizes the window. Only a press that starts and ends on the backdrop counts,
+  // so a text selection that ends outside doesn't. Not while sending or showing the result.
+  const pressedBackdrop = useRef(false)
+  const minimize = () => {
+    const field = textarea.current
+    setState({ editorCaret: field ? { start: field.selectionStart, end: field.selectionEnd } : undefined })
+    requestFabFocus() // the bubble takes focus when it appears
+    setState({ minimized: true })
+  }
   const stylesMessage = styleNotice ? "Previews may look unstyled because of this site's security policy." : null
 
   return (
-    <div class="backdrop">
+    <div
+      class="backdrop"
+      onPointerDown={(event) => {
+        pressedBackdrop.current = event.target === event.currentTarget
+      }}
+      onClick={(event) => {
+        const pressed = pressedBackdrop.current
+        pressedBackdrop.current = false
+        if (pressed && event.target === event.currentTarget && phase === 'idle') minimize()
+      }}
+    >
       <div class={signedIn && viewed && phase === 'idle' ? 'panel wide' : 'panel'} role="dialog" aria-modal="true" aria-label="Request a change" tabIndex={-1} ref={panel}>
         <h2>Request a change</h2>
         {phase === 'sent' || phase === 'queued' ? (
@@ -235,14 +255,14 @@ export function ReportWindow() {
               required
               value={note}
               disabled={phase === 'sending'}
-              placeholder="Describe the change. Point at things or record a demo to show what you mean."
+              placeholder="Describe the change. Take screenshots or record a demo to show what you mean."
               onInput={(event) => setState({ note: (event.currentTarget as HTMLTextAreaElement).value })}
             />
             <div class="toolbar">
               <button
                 type="button"
                 class="btn tool"
-                aria-label="Point at something"
+                aria-label="Take a screenshot"
                 disabled={atLimit || phase === 'sending'}
                 onClick={() => startPoint(caretNow())}
               >
@@ -250,7 +270,7 @@ export function ReportWindow() {
                   <circle cx="8" cy="8" r="4.5" />
                   <path d="M8 1v4M8 11v4M1 8h4M11 8h4" />
                 </svg>
-                Point
+                Screenshot
               </button>
               <button
                 type="button"
@@ -282,7 +302,7 @@ export function ReportWindow() {
             {atLimit ? (
               <p class="hint">Up to {MAX_CAPTURES} captures per report</p>
             ) : (
-              captures.length === 0 && <p class="hint">Point: tap the parts of the page you mean. Record: show it in action.</p>
+              captures.length === 0 && <p class="hint">Screenshot: tap the parts of the page you mean. Record: show it in action. Tap outside this window to go to another page.</p>
             )}
             {captures.length > 0 && (
               <ul class="cards">

@@ -6,6 +6,8 @@ export const css = `
 button { all: unset; box-sizing: border-box; cursor: pointer; font: 600 14px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
 button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
 .fab { position: fixed; width: 48px; height: 48px; border-radius: 50%; background: #1f2937; color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,.35); touch-action: none; user-select: none; -webkit-user-select: none; pointer-events: auto; }
+.fab.minimized { background: #2563eb; }
+.fab .dot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; border: 2px solid #fff; box-sizing: border-box; }
 .fab.dragging { cursor: grabbing; opacity: .85; }
 .fab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 .badge { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #dc2626; color: #fff; font: 700 12px/20px system-ui, sans-serif; text-align: center; pointer-events: none; }

@@ -31,13 +31,15 @@ export interface AppState {
   captureNotice?: string
   /** Where the report window puts the caret when it next mounts (after Point or Record ended). */
   editorCaret?: { start: number; end: number }
+  /** The report window is hidden behind the bubble (open stays true: the draft is kept in memory). */
+  minimized: boolean
   /** Show the floating button (`init({ button: false })` turns it off). */
   button: boolean
 }
 
 type Listener = (state: AppState) => void
 
-let state: AppState = { open: false, note: '', token: null, pending: 0, button: true }
+let state: AppState = { open: false, note: '', token: null, pending: 0, button: true, minimized: false }
 const listeners = new Set<Listener>()
 
 export function getState(): AppState {

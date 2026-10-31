@@ -40,7 +40,7 @@ function fromPx(left: number, top: number): Pos {
   return { fx: rangeX > 0 ? clamp01((left - MARGIN) / rangeX) : 0, fy: rangeY > 0 ? clamp01((top - MARGIN) / rangeY) : 0 }
 }
 
-export function FloatingButton({ pending, shakeThreshold }: { pending: number; shakeThreshold: () => number | undefined }) {
+export function FloatingButton({ pending, shakeThreshold, minimized = false }: { pending: number; shakeThreshold: () => number | undefined; minimized?: boolean }) {
   const [pos, setPos] = useState<Pos>(loadPos)
   const [dragging, setDragging] = useState(false)
   const [, resized] = useState(0)
@@ -65,9 +65,9 @@ export function FloatingButton({ pending, shakeThreshold }: { pending: number; s
     <button
       type="button"
       ref={button}
-      class={dragging ? 'fab dragging' : 'fab'}
-      aria-label="Request a change"
-      title="Request a change"
+      class={`fab${minimized ? ' minimized' : ''}${dragging ? ' dragging' : ''}`}
+      aria-label={minimized ? 'Continue your change request' : 'Request a change'}
+      title={minimized ? 'Continue your change request' : 'Request a change'}
       style={{ left: `${left}px`, top: `${top}px` }}
       onPointerDown={(e) => {
         if (e.button !== 0) return
@@ -125,6 +125,7 @@ export function FloatingButton({ pending, shakeThreshold }: { pending: number; s
         <path d="M11 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-6" />
         <path d="M17.5 2.8a1.9 1.9 0 0 1 2.7 2.7L11.5 14.2 8 15l.8-3.5z" />
       </svg>
+      {minimized && <span class="dot" aria-hidden="true" />}
       {pending > 0 && <span class="badge" aria-hidden="true">{pending > 99 ? '99+' : pending}</span>}
     </button>
   )

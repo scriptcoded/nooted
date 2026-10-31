@@ -14,15 +14,15 @@ export function recordingMs(capture: Capture): number {
   return typeof first === 'number' && typeof last === 'number' ? Math.max(0, last - first) : 0
 }
 
-/** "Pointed at" or "Recording". */
+/** "Screenshot" or "Recording". */
 export function captureLabel(capture: Capture): string {
-  return capture.demo ? 'Recording' : 'Pointed at'
+  return capture.demo ? 'Recording' : 'Screenshot'
 }
 
-/** The large view's title text: "Pointed at Add to cart", "Pointed at the whole page" or "Recording · m:ss". */
+/** The large view's title text: "Screenshot of Add to cart", "Screenshot of the whole page" or "Recording · m:ss". */
 export function captureTitle(capture: Capture): string {
   if (capture.demo) return `Recording · ${formatClock(recordingMs(capture))}`
-  return capture.marks.length > 0 ? `Pointed at ${pointedNames(capture)}` : 'Pointed at the whole page'
+  return capture.marks.length > 0 ? `Screenshot of ${pointedNames(capture)}` : 'Screenshot of the whole page'
 }
 
 /** The selected elements' names, or "Whole page". */

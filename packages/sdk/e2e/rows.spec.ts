@@ -96,7 +96,7 @@ test.describe('capture rows', () => {
 
     await card(page, 1).locator('.row-main').click()
     await expect(host(page).locator('.large iframe')).toBeVisible()
-    await expect(host(page).locator('.large')).toContainText(/\[1\]Pointed at \S/)
+    await expect(host(page).locator('.large')).toContainText(/\[1\]Screenshot of \S/)
     await expect(host(page).locator('.large .cp-badge')).toHaveCount(1)
     await expect(note(page)).toHaveCount(0)
     await host(page).getByRole('button', { name: 'Back' }).click()
@@ -230,7 +230,7 @@ test.describe('capture rows', () => {
     await addWholePage(page)
     await addRecording(page)
     await card(page, 2).locator('.row-main').click()
-    await expect(host(page).locator('.large-title')).toContainText('[2]Pointed at the whole page')
+    await expect(host(page).locator('.large-title')).toContainText('[2]Screenshot of the whole page')
     await expect(host(page).locator('.large .zoom')).toHaveCount(0)
     await host(page).getByRole('button', { name: 'Back' }).click()
     await card(page, 3).locator('.row-main').click()

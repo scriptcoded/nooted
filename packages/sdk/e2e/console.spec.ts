@@ -158,7 +158,7 @@ test.describe('the item page', () => {
   test('the large view opens, toggles the zoom, and closes', async () => {
     await card(page, 1).getByTestId('capture-open').click()
     const dlg = page.getByRole('dialog')
-    await expect(dlg).toContainText(/^\s*1\s*Pointed at/)
+    await expect(dlg).toContainText(/^\s*1\s*Screenshot of/)
     await expect(dlg.getByTestId('capture-large')).toHaveAttribute('data-ready', 'true', { timeout: 20_000 })
     await expect(dlg.getByTestId('capture-mark')).toHaveCount(1)
     await dlg.getByRole('button', { name: 'Show whole page' }).click()
@@ -185,7 +185,7 @@ test.describe('the item page', () => {
   test('a whole-page capture opens without a zoom toggle', async () => {
     await card(page, 3).getByTestId('capture-open').click()
     const dlg = page.getByRole('dialog')
-    await expect(dlg).toContainText('Pointed at the whole page')
+    await expect(dlg).toContainText('Screenshot of the whole page')
     await expect(dlg.getByTestId('capture-large')).toHaveAttribute('data-ready', 'true', { timeout: 20_000 })
     await expect(dlg.getByRole('button', { name: /Show whole page|Zoom to selection/ })).toHaveCount(0)
     await dlg.getByRole('button', { name: 'Close' }).click()

@@ -15,7 +15,7 @@ test.describe('editor', () => {
     await expect(note(page)).toHaveValue('If I click [1] ')
     await page.keyboard.type('I want a confirmation')
     await expect(note(page)).toHaveValue('If I click [1] I want a confirmation')
-    await expect(card(page, 1)).toContainText('[1]Pointed atAdd to cart')
+    await expect(card(page, 1)).toContainText('[1]ScreenshotAdd to cart')
   })
 
   test('a hand-typed token without a capture blocks Send with an explanation', async ({ page }) => {
@@ -80,7 +80,7 @@ test.describe('editor', () => {
     expect(await draftCaptures(page)).toEqual([])
   })
 
-  test('the limit: ten captures disable Point and Record with a message', async ({ page }) => {
+  test('the limit: ten captures disable Screenshot and Record with a message', async ({ page }) => {
     await setup(page)
     await captureAfter(page, 'one ', '#fx-counter')
     await expect(pointButton(page)).toBeEnabled()

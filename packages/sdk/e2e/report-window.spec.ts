@@ -192,14 +192,14 @@ test.describe('note form', () => {
     await installFakeSpeech(page)
     await open(page)
     await expect(host(page).getByRole('heading', { name: 'Request a change' })).toBeVisible()
-    await expect(note(page)).toHaveAttribute('placeholder', 'Describe the change. Point at things or record a demo to show what you mean.')
+    await expect(note(page)).toHaveAttribute('placeholder', 'Describe the change. Take screenshots or record a demo to show what you mean.')
     const tools = host(page).locator('.toolbar .btn')
     await expect(tools).toHaveCount(3)
-    await expect(tools.nth(0)).toHaveText('Point')
+    await expect(tools.nth(0)).toHaveText('Screenshot')
     await expect(tools.nth(1)).toHaveText('Record')
     await expect(tools.nth(2)).toHaveText('')
     for (const i of [0, 1, 2]) expect((await tools.nth(i).boundingBox())!.height).toBe(36)
-    await expect(host(page).getByText('Point: tap the parts of the page you mean. Record: show it in action.')).toBeVisible()
+    await expect(host(page).getByText('Screenshot: tap the parts of the page you mean. Record: show it in action.')).toBeVisible()
     await expect(host(page).locator('.footer')).toContainText(/Signed in as \S+@\S+/)
     await cancel(page).click()
     await expect(fab(page)).toHaveAttribute('title', 'Request a change')
@@ -412,7 +412,7 @@ test.describe('small phones', () => {
       send(page),
       cancel(page),
       mic(page),
-      host(page).getByRole('button', { name: 'Point at something' }),
+      host(page).getByRole('button', { name: 'Take a screenshot' }),
       host(page).getByRole('button', { name: 'Record a demo' }),
     ]
     for (const control of controls) {

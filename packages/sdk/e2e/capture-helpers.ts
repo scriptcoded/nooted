@@ -5,7 +5,7 @@ import { debugNooted, enableNooted, seedToken, waitForRuntime } from './helpers.
 export const host = (page: Page) => page.locator('#nooted-host')
 export const fab = (page: Page) => host(page).getByRole('button', { name: 'Request a change' })
 export const dialog = (page: Page) => page.getByRole('dialog', { name: 'Request a change' })
-export const pointButton = (page: Page) => host(page).getByRole('button', { name: 'Point at something' })
+export const pointButton = (page: Page) => host(page).getByRole('button', { name: 'Take a screenshot' })
 export const recordButton = (page: Page) => host(page).getByRole('button', { name: 'Record a demo' })
 export const note = (page: Page) => host(page).getByRole('textbox', { name: 'What should change?' })
 export const bar = (page: Page) => host(page).getByRole('region', { name: 'Capture' })
